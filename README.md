@@ -51,6 +51,8 @@ The app does not include advertising, analytics, or tracking SDKs. It does not r
 
 Location access is optional and used only to retrieve weather for the user’s selected area.
 
+Location autocomplete is performed locally on-device using a bundled U.S. city database. Partial search text is not sent to any third-party service.
+
 For more detail, see [`PRIVACY.md`](PRIVACY.md).
 
 ---
