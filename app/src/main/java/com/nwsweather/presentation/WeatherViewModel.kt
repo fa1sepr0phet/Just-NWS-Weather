@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nwsweather.data.local.SavedLocationEntity
 import com.nwsweather.data.local.SettingsManager
+import com.nwsweather.data.repository.CityRepository
+import com.nwsweather.data.repository.CitySuggestion
 import com.nwsweather.data.repository.WeatherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,14 +14,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class WeatherViewModel(
     private val repository: WeatherRepository,
+    private val cityRepository: CityRepository,
     private val settingsManager: SettingsManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WeatherUiState())
     val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
+
+    private var searchJob: Job? = null
 
     init {
         observeSavedLocations()
@@ -27,8 +34,43 @@ class WeatherViewModel(
         checkRatingPrompt()
     }
 
+    fun prepareSearch() {
+        searchJob?.cancel()
+        _uiState.update { 
+            it.copy(
+                searchQuery = "", 
+                citySuggestions = emptyList(),
+                saveLabel = "",
+                editingLocation = null 
+            ) 
+        }
+    }
+
     fun onSearchQueryChanged(value: String) {
         _uiState.update { it.copy(searchQuery = value) }
+        
+        searchJob?.cancel()
+        val trimmed = value.trim()
+        if (trimmed.length < 2) {
+            _uiState.update { it.copy(citySuggestions = emptyList()) }
+            return
+        }
+
+        searchJob = viewModelScope.launch {
+            delay(300) // Debounce to prevent flicker and unnecessary work
+            val suggestions = cityRepository.searchCities(trimmed)
+            _uiState.update { it.copy(citySuggestions = suggestions) }
+        }
+    }
+
+    fun onCitySuggestionSelected(suggestion: CitySuggestion) {
+        _uiState.update {
+            it.copy(
+                searchQuery = suggestion.fullDisplay,
+                citySuggestions = emptyList()
+            )
+        }
+        searchAddress()
     }
 
     fun onSaveLabelChanged(value: String) {
@@ -81,6 +123,8 @@ class WeatherViewModel(
         val query = current.searchQuery.trim()
         if (query.isBlank()) return
 
+        _uiState.update { it.copy(citySuggestions = emptyList()) }
+        
         launchLoad {
             repository.loadForecastForAddress(
                 address = query,
@@ -143,7 +187,14 @@ class WeatherViewModel(
     }
 
     fun stopEditingLocation() {
-        _uiState.update { it.copy(editingLocation = null, searchQuery = "", saveLabel = "") }
+        _uiState.update { 
+            it.copy(
+                editingLocation = null, 
+                searchQuery = "", 
+                saveLabel = "",
+                citySuggestions = emptyList()
+            ) 
+        }
     }
 
     private fun observeSavedLocations() {

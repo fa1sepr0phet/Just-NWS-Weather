@@ -1,6 +1,7 @@
 package com.nwsweather.presentation
 
 import com.nwsweather.data.local.SavedLocationEntity
+import com.nwsweather.data.repository.CitySuggestion
 import com.nwsweather.data.repository.ForecastLoadResult
 
 enum class AppTheme {
@@ -13,6 +14,7 @@ enum class TemperatureUnit {
 
 data class WeatherUiState(
     val searchQuery: String = "",
+    val citySuggestions: List<CitySuggestion> = emptyList(),
     val saveLabel: String = "",
     val isLoading: Boolean = false,
     val locationName: String? = null,

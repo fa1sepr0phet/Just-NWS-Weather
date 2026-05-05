@@ -23,7 +23,11 @@ class MainActivity : ComponentActivity() {
     private val appContainer by lazy { AppContainer(this) }
     private val movementTracker by lazy { MovementTracker(this) }
     private val viewModel: WeatherViewModel by viewModels {
-        WeatherViewModelFactory(appContainer.weatherRepository, appContainer.settingsManager)
+        WeatherViewModelFactory(
+            appContainer.weatherRepository,
+            appContainer.cityRepository,
+            appContainer.settingsManager
+        )
     }
 
     private val locationPermissionLauncher =

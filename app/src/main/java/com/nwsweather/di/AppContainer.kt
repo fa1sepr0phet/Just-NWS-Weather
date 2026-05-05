@@ -4,6 +4,7 @@ import android.content.Context
 import com.nwsweather.data.local.AppDatabase
 import com.nwsweather.data.local.SettingsManager
 import com.nwsweather.data.network.ApiModule
+import com.nwsweather.data.repository.CityRepository
 import com.nwsweather.data.repository.WeatherRepository
 import com.nwsweather.location.AndroidLocationClient
 
@@ -20,4 +21,6 @@ class AppContainer(context: Context) {
         locationClient = locationClient,
         appContext = context.applicationContext
     )
+
+    val cityRepository: CityRepository = CityRepository(context.applicationContext)
 }

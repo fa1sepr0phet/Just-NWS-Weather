@@ -25,9 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+import com.nwsweather.data.repository.CitySuggestion
+
 @Composable
 fun LocationSearchCard(
     searchQuery: String,
+    citySuggestions: List<CitySuggestion>,
+    onCitySuggestionSelected: (CitySuggestion) -> Unit,
     saveLabel: String,
     isLoading: Boolean,
     onSearchQueryChanged: (String) -> Unit,
@@ -99,6 +103,40 @@ fun LocationSearchCard(
                 enabled = !isLoading,
                 colors = textFieldColors
             )
+
+            if (citySuggestions.isNotEmpty()) {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Column {
+                        citySuggestions.forEach { suggestion ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCitySuggestionSelected(suggestion) }
+                                    .padding(12.dp),
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Search,
+                                    contentDescription = null,
+                                    tint = textColor.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = suggestion.fullDisplay,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = textColor
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             OutlinedTextField(
                 value = saveLabel,

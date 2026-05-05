@@ -79,11 +79,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
+import com.nwsweather.data.repository.CitySuggestion
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherScreen(
     uiState: WeatherUiState,
     onSearchQueryChanged: (String) -> Unit,
+    onCitySuggestionSelected: (CitySuggestion) -> Unit,
     onSaveLabelChanged: (String) -> Unit,
     onThemeChanged: (AppTheme) -> Unit,
     onTemperatureUnitChanged: (TemperatureUnit) -> Unit,
@@ -101,7 +104,8 @@ fun WeatherScreen(
     onDismissSearchHelp: () -> Unit,
     onDismissFavoritesHelp: () -> Unit,
     onRateApp: () -> Unit,
-    onDismissRatingPrompt: () -> Unit
+    onDismissRatingPrompt: () -> Unit,
+    onOpenSearch: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showThemeMenu by remember { mutableStateOf(false) }
@@ -195,7 +199,10 @@ fun WeatherScreen(
                     },
                     actions = {
                         IconButton(
-                            onClick = { showSearchMenu = true }
+                            onClick = { 
+                                onOpenSearch()
+                                showSearchMenu = true 
+                            }
                         ) {
                             Icon(
                                 Icons.Default.Menu,
@@ -220,6 +227,10 @@ fun WeatherScreen(
                                     
                                     LocationSearchCard(
                                         searchQuery = uiState.searchQuery,
+                                        citySuggestions = uiState.citySuggestions,
+                                        onCitySuggestionSelected = { suggestion ->
+                                            onCitySuggestionSelected(suggestion)
+                                        },
                                         saveLabel = uiState.saveLabel,
                                         isLoading = uiState.isLoading,
                                         onSearchQueryChanged = onSearchQueryChanged,

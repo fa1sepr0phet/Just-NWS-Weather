@@ -15,6 +15,7 @@ fun WeatherRoute(
     WeatherScreen(
         uiState = uiState,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
+        onCitySuggestionSelected = viewModel::onCitySuggestionSelected,
         onSaveLabelChanged = viewModel::onSaveLabelChanged,
         onThemeChanged = viewModel::onThemeChanged,
         onTemperatureUnitChanged = viewModel::onTemperatureUnitChanged,
@@ -32,6 +33,7 @@ fun WeatherRoute(
         onDismissSearchHelp = viewModel::onDismissSearchHelp,
         onDismissFavoritesHelp = viewModel::onDismissFavoritesHelp,
         onRateApp = viewModel::onRateApp,
-        onDismissRatingPrompt = viewModel::onDismissRatingPrompt
+        onDismissRatingPrompt = viewModel::onDismissRatingPrompt,
+        onOpenSearch = viewModel::prepareSearch
     )
 }
