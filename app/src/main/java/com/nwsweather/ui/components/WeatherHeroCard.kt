@@ -18,11 +18,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.nwsweather.data.model.NwsForecastPeriod
+import com.nwsweather.presentation.TemperatureUnit
+import com.nwsweather.util.formatTemperature
 
 @Composable
 fun WeatherHeroCard(
     period: NwsForecastPeriod,
     locationName: String,
+    temperatureUnit: TemperatureUnit = TemperatureUnit.FAHRENHEIT,
     cardColor: Color = Color.White.copy(alpha = 0.6f),
     textColor: Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit = {}
@@ -64,7 +67,11 @@ fun WeatherHeroCard(
 
                 Column {
                     Text(
-                        text = "${period.temperature}°${period.temperatureUnit}",
+                        text = formatTemperature(
+                            value = period.temperature,
+                            sourceUnit = period.temperatureUnit,
+                            targetUnit = temperatureUnit
+                        ),
                         style = MaterialTheme.typography.displayMedium,
                         color = textColor
                     )

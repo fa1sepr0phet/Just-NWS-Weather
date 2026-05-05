@@ -17,6 +17,7 @@ import androidx.glance.appwidget.updateAll
 import com.nwsweather.location.DeviceLocationClient
 import com.nwsweather.widget.WeatherAppWidget
 import com.nwsweather.util.roundCoordinate
+import retrofit2.HttpException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -208,10 +209,17 @@ class WeatherRepository(
         val cached = pointCacheDao.get(key)
         if (cached != null) return cached
 
-        val point = nwsApi.getPointMetadata(
-            lat = roundedLatitude.toString(),
-            lon = roundedLongitude.toString()
-        )
+        val point = try {
+            nwsApi.getPointMetadata(
+                lat = roundedLatitude.toString(),
+                lon = roundedLongitude.toString()
+            )
+        } catch (e: HttpException) {
+            if (e.code() == 404) {
+                throw Exception("Unable to retrieve location. The National Weather Service only provides data for the United States.")
+            }
+            throw e
+        }
 
         val entity = PointCacheEntity(
             key = key,

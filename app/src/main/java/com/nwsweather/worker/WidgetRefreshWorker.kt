@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nwsweather.di.AppContainer
 import com.nwsweather.sensor.MovementTracker
+import com.nwsweather.util.NotificationHelper
 import com.nwsweather.widget.WeatherAppWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,9 +31,22 @@ class WidgetRefreshWorker(
         }
 
         runCatching {
-            val repository = AppContainer(applicationContext).weatherRepository
-            repository.refreshLatestSnapshot()
+            val container = AppContainer(applicationContext)
+            val repository = container.weatherRepository
+            val settings = container.settingsManager
+            
+            val result = repository.refreshLatestSnapshot()
             WeatherAppWidget().updateAll(applicationContext)
+
+            if (settings.notificationsEnabled.value && result != null && result.alerts.isNotEmpty()) {
+                val helper = NotificationHelper(applicationContext)
+                helper.createNotificationChannel()
+                val alert = result.alerts.first()
+                helper.showWeatherAlert(
+                    title = alert.event ?: "Weather Alert",
+                    message = alert.headline ?: "Severe weather conditions reported."
+                )
+            }
         }.fold(
             onSuccess = { Result.success() },
             onFailure = { Result.retry() }

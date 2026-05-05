@@ -2,6 +2,7 @@ package com.nwsweather
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,7 +23,7 @@ class MainActivity : ComponentActivity() {
     private val appContainer by lazy { AppContainer(this) }
     private val movementTracker by lazy { MovementTracker(this) }
     private val viewModel: WeatherViewModel by viewModels {
-        WeatherViewModelFactory(appContainer.weatherRepository)
+        WeatherViewModelFactory(appContainer.weatherRepository, appContainer.settingsManager)
     }
 
     private val locationPermissionLauncher =
@@ -37,9 +38,20 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+            // Just request, we check at runtime in NotificationHelper too
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()

@@ -17,6 +17,8 @@ fun WeatherRoute(
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onSaveLabelChanged = viewModel::onSaveLabelChanged,
         onThemeChanged = viewModel::onThemeChanged,
+        onTemperatureUnitChanged = viewModel::onTemperatureUnitChanged,
+        onNotificationsToggleChanged = viewModel::onNotificationsToggleChanged,
         onSearchAddress = viewModel::searchAddress,
         onSavedLocationClick = viewModel::loadSavedLocation,
         onRefresh = viewModel::refreshForecast,
@@ -24,6 +26,12 @@ fun WeatherRoute(
         onUseCurrentLocation = onRequestCurrentLocation,
         onDeleteLocation = viewModel::deleteSavedLocation,
         onEditLocation = viewModel::startEditingLocation,
-        onStopEditing = viewModel::stopEditingLocation
+        onStopEditing = viewModel::stopEditingLocation,
+        onShowTutorial = viewModel::onShowTutorial,
+        onDismissTutorial = viewModel::onDismissTutorial,
+        onDismissSearchHelp = viewModel::onDismissSearchHelp,
+        onDismissFavoritesHelp = viewModel::onDismissFavoritesHelp,
+        onRateApp = viewModel::onRateApp,
+        onDismissRatingPrompt = viewModel::onDismissRatingPrompt
     )
 }

@@ -3,21 +3,28 @@ package com.nwsweather.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nwsweather.data.local.SavedLocationEntity
+import com.nwsweather.data.local.SettingsManager
 import com.nwsweather.data.repository.WeatherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class WeatherViewModel(
-    private val repository: WeatherRepository
+    private val repository: WeatherRepository,
+    private val settingsManager: SettingsManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(WeatherUiState())
     val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
 
     init {
         observeSavedLocations()
+        observeSettings()
+        checkRatingPrompt()
     }
 
     fun onSearchQueryChanged(value: String) {
@@ -29,7 +36,40 @@ class WeatherViewModel(
     }
 
     fun onThemeChanged(theme: AppTheme) {
-        _uiState.update { it.copy(theme = theme) }
+        settingsManager.setTheme(theme)
+    }
+
+    fun onTemperatureUnitChanged(unit: TemperatureUnit) {
+        settingsManager.setTemperatureUnit(unit)
+    }
+
+    fun onNotificationsToggleChanged(enabled: Boolean) {
+        settingsManager.setNotificationsEnabled(enabled)
+    }
+
+    fun onShowTutorial() {
+        settingsManager.setShowTutorial(true)
+    }
+
+    fun onDismissTutorial() {
+        settingsManager.setShowTutorial(false)
+    }
+
+    fun onDismissRatingPrompt() {
+        _uiState.update { it.copy(showRatingPrompt = false) }
+    }
+
+    fun onDismissSearchHelp() {
+        settingsManager.setHasSeenSearchHelp(true)
+    }
+
+    fun onDismissFavoritesHelp() {
+        settingsManager.setHasSeenFavoritesHelp(true)
+    }
+
+    fun onRateApp() {
+        settingsManager.markRated()
+        _uiState.update { it.copy(showRatingPrompt = false) }
     }
 
     fun dismissError() {
@@ -81,7 +121,7 @@ class WeatherViewModel(
         _uiState.update {
             it.copy(
                 isLoading = false,
-                errorMessage = "Location permission was denied. You can still search by address."
+                errorMessage = "Location permission was denied. You can still search by address, or enable location in your device settings under Apps > JustWeather > Permissions."
             )
         }
     }
@@ -111,6 +151,39 @@ class WeatherViewModel(
             repository.observeSavedLocations().collect { locations ->
                 _uiState.update { it.copy(savedLocations = locations) }
             }
+        }
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            combine(
+                settingsManager.theme,
+                settingsManager.unit,
+                settingsManager.notificationsEnabled,
+                settingsManager.showTutorial,
+                combine(
+                    settingsManager.hasSeenSearchHelp,
+                    settingsManager.hasSeenFavoritesHelp
+                ) { seenSearch, seenFavorites -> seenSearch to seenFavorites }
+            ) { theme, unit, notifications, showTutorial, seenHelp ->
+                val (seenSearch, seenFavorites) = seenHelp
+                _uiState.update {
+                    it.copy(
+                        theme = theme,
+                        temperatureUnit = unit,
+                        notificationsEnabled = notifications,
+                        showTutorial = showTutorial,
+                        showSearchHelp = !seenSearch,
+                        showFavoritesHelp = !seenFavorites
+                    )
+                }
+            }.collect {}
+        }
+    }
+
+    private fun checkRatingPrompt() {
+        if (settingsManager.shouldPromptForRating()) {
+            _uiState.update { it.copy(showRatingPrompt = true) }
         }
     }
 
