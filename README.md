@@ -1,10 +1,10 @@
-# JustWeather
+# Just NWS Weather
 
 > A clean, privacy-focused, open-source Android weather app powered by the National Weather Service.
 
 **No ads. No analytics. No tracking. No subscriptions.**
 
-JustWeather exists for one reason: to show accurate weather without turning users into the product.
+Just NWS Weather exists for one reason: to show accurate weather without turning users into the product.
 
 ---
 
@@ -59,7 +59,7 @@ For more detail, see [`PRIVACY.md`](PRIVACY.md).
 
 ## Network Requests
 
-JustWeather makes network requests only for weather and location functionality.
+Just NWS Weather makes network requests only for weather and location functionality.
 
 Primary service:
 
@@ -69,12 +69,12 @@ Possible system-level service:
 
 - Android `Geocoder` — used for address lookup; the backend may depend on the device, Android version, or OEM.
 
-JustWeather does not send data to analytics, advertising, crash-reporting, or tracking services.
+Just NWS Weather does not send data to analytics, advertising, crash-reporting, or tracking services.
 
 ---
 
 ## Standard Build
-git clone https://github.com/fa1sepr0phet/JustWeather.git
+git clone https://github.com/fa1sepr0phet/Just-NWS-Weather.git
 ```cd JustWeather
 ./gradlew assembleRelease
 ```
@@ -85,7 +85,7 @@ For a debug buld:
 
 ## FOSS / Privacy Build
 
-JustWeather supports a FOSS-oriented build for users and distributors who want to avoid Google Play Services dependencies.
+Just NWS Weather supports a FOSS-oriented build for users and distributors who want to avoid Google Play Services dependencies.
 
 ```bash
 ./gradlew assembleFossRelease
