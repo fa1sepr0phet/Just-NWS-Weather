@@ -6,7 +6,7 @@
 
 Just NWS Weather exists for one reason: to show accurate weather without turning users into the product.
 
-Google Play link: https://play.google.com/store/apps/details?id=com.nwsweather.myapp
+Download from Google Play: https://play.google.com/store/apps/details?id=com.nwsweather.myapp
 
 ---
 
