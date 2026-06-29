@@ -11,7 +11,8 @@ data class SavedLocationEntity(
     val latitude: Double,
     val longitude: Double,
     val city: String? = null,
-    val state: String? = null
+    val state: String? = null,
+    val displayOrder: Int = 0
 )
 
 @Entity(tableName = "point_cache")
@@ -38,8 +39,10 @@ data class WeatherSnapshotEntity(
     val temperature: Int,
     val temperatureUnit: String,
     val shortForecast: String,
+    val humidity: Int? = null,
     val windSpeed: String,
     val windDirection: String,
+    val uvIndex: Int? = null,
     val updatedAtEpochMs: Long,
     val isDaytime: Boolean
 )

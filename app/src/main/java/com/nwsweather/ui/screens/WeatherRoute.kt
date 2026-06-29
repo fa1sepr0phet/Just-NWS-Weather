@@ -34,6 +34,9 @@ fun WeatherRoute(
         onDismissFavoritesHelp = viewModel::onDismissFavoritesHelp,
         onRateApp = viewModel::onRateApp,
         onDismissRatingPrompt = viewModel::onDismissRatingPrompt,
-        onOpenSearch = viewModel::prepareSearch
+        onOpenSearch = viewModel::prepareSearch,
+        onClearAllData = viewModel::clearAllData,
+        onStatusBarTempToggleChanged = viewModel::onStatusBarTempToggleChanged,
+        onMoveLocation = viewModel::moveLocation
     )
 }

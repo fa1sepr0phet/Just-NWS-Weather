@@ -12,7 +12,6 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.nwsweather.di.AppContainer
-import com.nwsweather.sensor.MovementTracker
 import com.nwsweather.util.NotificationHelper
 import com.nwsweather.widget.WeatherAppWidget
 import kotlinx.coroutines.Dispatchers
@@ -25,11 +24,6 @@ class WidgetRefreshWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        // Battery saving: Skip if stationary for 20+ mins
-        if (MovementTracker.isPhoneStationary(applicationContext, 20)) {
-            return@withContext Result.success()
-        }
-
         runCatching {
             val container = AppContainer(applicationContext)
             val repository = container.weatherRepository
@@ -38,14 +32,35 @@ class WidgetRefreshWorker(
             val result = repository.refreshLatestSnapshot()
             WeatherAppWidget().updateAll(applicationContext)
 
+            val helper = NotificationHelper(applicationContext)
+            helper.createNotificationChannel()
+
+            if (settings.statusBarTempEnabled.value && result != null) {
+                val period = result.currentHourlyPeriod ?: result.currentPeriod
+                if (period != null) {
+                    helper.updateStatusBarTemperature(
+                        temp = period.temperature,
+                        locationName = result.locationName,
+                        forecast = period.shortForecast ?: "",
+                        isDaytime = period.isDaytime
+                    )
+                }
+            } else if (!settings.statusBarTempEnabled.value) {
+                helper.cancelStatusBarTemperature()
+            }
+
             if (settings.notificationsEnabled.value && result != null && result.alerts.isNotEmpty()) {
-                val helper = NotificationHelper(applicationContext)
-                helper.createNotificationChannel()
                 val alert = result.alerts.first()
-                helper.showWeatherAlert(
-                    title = alert.event ?: "Weather Alert",
-                    message = alert.headline ?: "Severe weather conditions reported."
-                )
+                val lastAlertId = settings.getLastNotifiedAlertId()
+                
+                // Only show a notification if this is a NEW alert we haven't notified for yet
+                if (alert.id != lastAlertId) {
+                    helper.showWeatherAlert(
+                        title = alert.event ?: "Weather Alert",
+                        message = alert.headline ?: "Severe weather conditions reported."
+                    )
+                    settings.setLastNotifiedAlertId(alert.id)
+                }
             }
         }.fold(
             onSuccess = { Result.success() },

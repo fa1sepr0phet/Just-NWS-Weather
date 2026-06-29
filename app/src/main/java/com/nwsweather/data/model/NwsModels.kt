@@ -55,6 +55,7 @@ data class NwsForecastPeriod(
     val detailedForecast: String? = null,
     val windSpeed: String? = null,
     val windDirection: String? = null,
+    val relativeHumidity: QuantifiedValue? = null,
     val probabilityOfPrecipitation: QuantifiedValue? = null
 )
 

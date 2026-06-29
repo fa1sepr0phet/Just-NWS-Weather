@@ -76,14 +76,17 @@ Just NWS Weather does not send data to analytics, advertising, crash-reporting, 
 ---
 
 ## Standard Build
+
 git clone https://github.com/fa1sepr0phet/Just-NWS-Weather.git
 ```cd JustWeather
+
 ./gradlew assembleRelease
 ```
 
-For a debug buld:
-```
+For a debug build:
+```bash
 ./gradlew assembleDebug
+```
 
 ## FOSS / Privacy Build
 

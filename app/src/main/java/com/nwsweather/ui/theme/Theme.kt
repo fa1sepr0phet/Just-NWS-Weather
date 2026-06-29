@@ -100,8 +100,8 @@ fun NwsWeatherTheme(
     if (!view.isInEditMode) {
         val window = (context as? Activity)?.window
         if (window != null) {
-            WindowCompat.setDecorFitsSystemWindows(window, false)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

@@ -7,6 +7,7 @@ import com.nwsweather.data.local.SettingsManager
 import com.nwsweather.data.repository.CityRepository
 import com.nwsweather.data.repository.CitySuggestion
 import com.nwsweather.data.repository.WeatherRepository
+import com.nwsweather.util.NotificationHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,7 @@ class WeatherViewModel(
         observeSavedLocations()
         observeSettings()
         checkRatingPrompt()
+        refreshStatusBarTemp()
     }
 
     fun prepareSearch() {
@@ -87,6 +89,34 @@ class WeatherViewModel(
 
     fun onNotificationsToggleChanged(enabled: Boolean) {
         settingsManager.setNotificationsEnabled(enabled)
+    }
+
+    fun onStatusBarTempToggleChanged(enabled: Boolean) {
+        settingsManager.setStatusBarTempEnabled(enabled)
+        if (enabled) {
+            val helper = NotificationHelper(repository.appContext)
+            if (!helper.hasNotificationPermission()) {
+                _uiState.update { it.copy(errorMessage = "Notification permission is required for the status bar temperature display.") }
+            }
+            refreshStatusBarTemp()
+        } else {
+            NotificationHelper(repository.appContext).cancelStatusBarTemperature()
+        }
+    }
+
+    fun refreshStatusBarTemp() {
+        if (!settingsManager.statusBarTempEnabled.value) return
+        viewModelScope.launch {
+            val snapshot = repository.getLatestSnapshot()
+            if (snapshot != null) {
+                NotificationHelper(repository.appContext).updateStatusBarTemperature(
+                    snapshot.temperature,
+                    snapshot.locationName,
+                    snapshot.shortForecast,
+                    snapshot.isDaytime
+                )
+            }
+        }
     }
 
     fun onShowTutorial() {
@@ -165,7 +195,7 @@ class WeatherViewModel(
         _uiState.update {
             it.copy(
                 isLoading = false,
-                errorMessage = "Location permission was denied. You can still search by address, or enable location in your device settings under Apps > JustWeather > Permissions."
+                errorMessage = "Location permission was denied. You can still search by address, or enable location in your device settings under Apps > Just NWS Weather > Permissions."
             )
         }
     }
@@ -173,6 +203,27 @@ class WeatherViewModel(
     fun deleteSavedLocation(location: SavedLocationEntity) {
         viewModelScope.launch {
             repository.deleteSavedLocation(location)
+        }
+    }
+
+    fun moveLocation(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        viewModelScope.launch {
+            repository.reorderSavedLocations(fromIndex, toIndex)
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch {
+            repository.clearAllData()
+            _uiState.update {
+                it.copy(
+                    forecastResult = null,
+                    locationName = null,
+                    searchQuery = "",
+                    saveLabel = ""
+                )
+            }
         }
     }
 
@@ -211,18 +262,25 @@ class WeatherViewModel(
                 settingsManager.theme,
                 settingsManager.unit,
                 settingsManager.notificationsEnabled,
+                settingsManager.statusBarTempEnabled,
                 settingsManager.showTutorial,
-                combine(
-                    settingsManager.hasSeenSearchHelp,
-                    settingsManager.hasSeenFavoritesHelp
-                ) { seenSearch, seenFavorites -> seenSearch to seenFavorites }
-            ) { theme, unit, notifications, showTutorial, seenHelp ->
-                val (seenSearch, seenFavorites) = seenHelp
+                settingsManager.hasSeenSearchHelp,
+                settingsManager.hasSeenFavoritesHelp
+            ) { args ->
+                val theme = args[0] as AppTheme
+                val unit = args[1] as TemperatureUnit
+                val notifications = args[2] as Boolean
+                val statusBarTemp = args[3] as Boolean
+                val showTutorial = args[4] as Boolean
+                val seenSearch = args[5] as Boolean
+                val seenFavorites = args[6] as Boolean
+
                 _uiState.update {
                     it.copy(
                         theme = theme,
                         temperatureUnit = unit,
                         notificationsEnabled = notifications,
+                        statusBarTempEnabled = statusBarTemp,
                         showTutorial = showTutorial,
                         showSearchHelp = !seenSearch,
                         showFavoritesHelp = !seenFavorites

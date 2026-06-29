@@ -28,6 +28,8 @@ import com.nwsweather.MainActivity
 import com.nwsweather.myapp.R
 import com.nwsweather.data.local.AppDatabase
 import com.nwsweather.data.local.WeatherSnapshotEntity
+import com.nwsweather.ui.theme.WeatherMood
+import com.nwsweather.ui.theme.mapWeatherMood
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -90,7 +92,7 @@ private fun Loaded2x1Pill(snapshot: WeatherSnapshotEntity) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ConditionIcon(snapshot.isDaytime)
+        ConditionIcon(snapshot)
         Spacer(modifier = GlanceModifier.width(8.dp))
         Column {
             Text(
@@ -113,7 +115,7 @@ private fun Loaded2x2Square(snapshot: WeatherSnapshotEntity) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ConditionIcon(snapshot.isDaytime)
+        ConditionIcon(snapshot)
         Text(
             text = "${snapshot.temperature}°",
             style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 32.sp)
@@ -137,7 +139,7 @@ private fun Loaded4x1Pill(snapshot: WeatherSnapshotEntity) {
         modifier = GlanceModifier.fillMaxSize(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        ConditionIcon(snapshot.isDaytime)
+        ConditionIcon(snapshot)
         Spacer(modifier = GlanceModifier.width(12.dp))
         Column(modifier = GlanceModifier.defaultWeight()) {
             Text(
@@ -145,13 +147,17 @@ private fun Loaded4x1Pill(snapshot: WeatherSnapshotEntity) {
                 style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 18.sp),
                 maxLines = 1
             )
+            val details = listOfNotNull(
+                snapshot.shortForecast,
+                snapshot.humidity?.let { "Hum: $it%" },
+                snapshot.uvIndex?.let { "UV: $it" }
+            ).joinToString(" • ")
             Text(
-                text = snapshot.shortForecast,
+                text = details,
                 style = TextStyle(color = ColorProvider(Color(0xE6FFFFFF)), fontSize = 12.sp),
                 maxLines = 1
             )
         }
-        UVIndexBadge("Moderate") // Placeholder UV
     }
 }
 
@@ -163,12 +169,27 @@ private fun Loaded4x2Rect(snapshot: WeatherSnapshotEntity) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ConditionIcon(snapshot.isDaytime)
+            ConditionIcon(snapshot)
             Text(
                 text = "${snapshot.temperature}°",
                 style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 36.sp)
             )
             Text(text = snapshot.locationName, style = TextStyle(color = ColorProvider(Color.White)))
+            
+            Row(modifier = GlanceModifier.padding(top = 4.dp)) {
+                snapshot.humidity?.let {
+                    Text(
+                        text = "H: $it% ",
+                        style = TextStyle(color = ColorProvider(Color(0xCCFFFFFF)), fontSize = 12.sp)
+                    )
+                }
+                snapshot.uvIndex?.let {
+                    Text(
+                        text = "UV: $it",
+                        style = TextStyle(color = ColorProvider(Color(0xCCFFFFFF)), fontSize = 12.sp)
+                    )
+                }
+            }
         }
         
         // Right side: 3-day forecast placeholder
@@ -184,10 +205,20 @@ private fun Loaded4x2Rect(snapshot: WeatherSnapshotEntity) {
 }
 
 @Composable
-private fun ConditionIcon(isDaytime: Boolean) {
+private fun ConditionIcon(snapshot: WeatherSnapshotEntity) {
+    val mood = mapWeatherMood(snapshot.shortForecast, snapshot.isDaytime)
+    val resourceId = when (mood) {
+        WeatherMood.SUNNY -> R.drawable.ic_sun
+        WeatherMood.CLOUDY, WeatherMood.CLOUDY_NIGHT -> R.drawable.ic_cloud
+        WeatherMood.RAIN -> R.drawable.ic_rain
+        WeatherMood.STORM -> R.drawable.ic_storm
+        WeatherMood.SNOW -> R.drawable.ic_snow
+        WeatherMood.CLEAR_NIGHT -> R.drawable.ic_moon
+    }
+
     Image(
-        provider = ImageProvider(if (isDaytime) R.drawable.ic_sun else R.drawable.ic_moon),
-        contentDescription = null,
+        provider = ImageProvider(resourceId),
+        contentDescription = snapshot.shortForecast,
         modifier = GlanceModifier.size(32.dp)
     )
 }
@@ -224,10 +255,18 @@ private fun EmptyWeatherWidget() {
 }
 
 private fun backgroundColorFor(snapshot: WeatherSnapshotEntity?): ColorProvider {
-    val color = when {
-        snapshot == null -> Color(0xFF31435F)
-        snapshot.isDaytime -> Color(0xFF4F86C6)
-        else -> Color(0xFF1F2A44)
+    if (snapshot == null) return ColorProvider(Color(0xFF31435F))
+    
+    val mood = mapWeatherMood(snapshot.shortForecast, snapshot.isDaytime)
+    
+    val color = when (mood) {
+        WeatherMood.SUNNY -> Color(0xFF4F86C6)
+        WeatherMood.CLOUDY -> Color(0xFF8FA3B0)
+        WeatherMood.RAIN -> Color(0xFF355C7D)
+        WeatherMood.STORM -> Color(0xFF16213E)
+        WeatherMood.SNOW -> Color(0xFFDDEAF7)
+        WeatherMood.CLEAR_NIGHT -> Color(0xFF1F2A44)
+        WeatherMood.CLOUDY_NIGHT -> Color(0xFF1A2633)
     }
     return ColorProvider(color)
 }

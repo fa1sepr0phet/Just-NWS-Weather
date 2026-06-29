@@ -6,7 +6,7 @@ local.properties
 .cxx/
 .externalNativeBuild/
 captures/
-
+app/play/
 # IDE
 .idea/
 *.iml

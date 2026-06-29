@@ -2,6 +2,7 @@ package com.nwsweather.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -105,12 +107,16 @@ fun WeatherScreen(
     onDismissFavoritesHelp: () -> Unit,
     onRateApp: () -> Unit,
     onDismissRatingPrompt: () -> Unit,
-    onOpenSearch: () -> Unit
+    onOpenSearch: () -> Unit,
+    onClearAllData: () -> Unit,
+    onStatusBarTempToggleChanged: (Boolean) -> Unit,
+    onMoveLocation: (fromIndex: Int, toIndex: Int) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showThemeMenu by remember { mutableStateOf(false) }
     var showSearchMenu by remember { mutableStateOf(false) }
     var showSettingsMenu by remember { mutableStateOf(false) }
+    var showClearDataConfirm by remember { mutableStateOf(false) }
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(
         skipPartiallyExpanded = true
     )
@@ -125,6 +131,14 @@ fun WeatherScreen(
 
     val openNwsWebsite = { lat: Double, lon: Double ->
         val url = "https://forecast.weather.gov/MapClick.php?lat=$lat&lon=$lon"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    }
+
+    val openRadar = { lat: Double, lon: Double ->
+        val json = """{"agenda":{"id":"weather","center":[$lon,$lat],"location":[$lon,$lat],"zoom":7,"layer":"bref_qcd"},"animating":false,"base":"standard","artcc":false,"county":false,"cwa":false,"rfc":false,"state":false,"menu":true,"shortFusedOnly":false,"opacity":{"alerts":0.8,"local":0.6,"localStations":0.8,"national":0.6}}"""
+        val encoded = Base64.encodeToString(json.toByteArray(), Base64.NO_WRAP or Base64.URL_SAFE)
+        val url = "https://radar.weather.gov/?settings=v1_$encoded"
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         context.startActivity(intent)
     }
@@ -193,7 +207,7 @@ fun WeatherScreen(
                     ),
                     title = {
                         Text(
-                            text = uiState.locationName ?: "NWS Weather",
+                            text = uiState.locationName ?: "Just NWS Weather",
                             style = MaterialTheme.typography.titleLarge
                         )
                     },
@@ -207,6 +221,20 @@ fun WeatherScreen(
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = "Search menu"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                uiState.forecastResult?.let { result ->
+                                    openRadar(result.latitude, result.longitude)
+                                }
+                            },
+                            enabled = uiState.forecastResult != null && !uiState.isLoading
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Radar,
+                                contentDescription = "Weather Radar"
                             )
                         }
 
@@ -373,9 +401,27 @@ fun WeatherScreen(
                                     leadingIcon = { Icon(Icons.Outlined.Warning, null) },
                                     onClick = { onNotificationsToggleChanged(!uiState.notificationsEnabled) }
                                 )
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Status Bar Temp")
+                                            Switch(
+                                                checked = uiState.statusBarTempEnabled,
+                                                onCheckedChange = onStatusBarTempToggleChanged,
+                                                modifier = Modifier.scale(0.8f)
+                                            )
+                                        }
+                                    },
+                                    leadingIcon = { Icon(Icons.Outlined.Thermostat, null) },
+                                    onClick = { onStatusBarTempToggleChanged(!uiState.statusBarTempEnabled) }
+                                )
                                 HorizontalDivider()
                                 DropdownMenuItem(
-                                    text = { Text("Rate JustWeather") },
+                                    text = { Text("Rate Just NWS Weather") },
                                     leadingIcon = { Icon(Icons.Outlined.Star, null) },
                                     onClick = {
                                         openPlayStore()
@@ -387,8 +433,8 @@ fun WeatherScreen(
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
                                     onClick = {
                                         val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                            data = Uri.parse("mailto:support@nwsweather.com")
-                                            putExtra(Intent.EXTRA_SUBJECT, "JustWeather Feedback")
+                                            data = Uri.parse("mailto:falsepr0phet@protonmail.com")
+                                            putExtra(Intent.EXTRA_SUBJECT, "Just NWS Weather Feedback")
                                         }
                                         context.startActivity(intent)
                                         showSettingsMenu = false
@@ -399,6 +445,15 @@ fun WeatherScreen(
                                     leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
                                     onClick = {
                                         onShowTutorial()
+                                        showSettingsMenu = false
+                                    }
+                                )
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text = { Text("Clear App Data", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showClearDataConfirm = true
                                         showSettingsMenu = false
                                     }
                                 )
@@ -472,6 +527,29 @@ fun WeatherScreen(
                         openPlayStore()
                     },
                     onDismiss = onDismissRatingPrompt
+                )
+            }
+
+            if (showClearDataConfirm) {
+                AlertDialog(
+                    onDismissRequest = { showClearDataConfirm = false },
+                    title = { Text("Clear All App Data?") },
+                    text = { Text("This will delete all saved locations and cached weather data. This action cannot be undone.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                onClearAllData()
+                                showClearDataConfirm = false
+                            }
+                        ) {
+                            Text("Clear Everything", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearDataConfirm = false }) {
+                            Text("Cancel")
+                        }
+                    }
                 )
             }
             
@@ -560,6 +638,7 @@ fun WeatherScreen(
                             SavedLocationChips(
                                 locations = uiState.savedLocations,
                                 onClick = onSavedLocationClick,
+                                onMoveLocation = onMoveLocation,
                                 textColor = visuals.appBarContentColor
                             )
                         }
@@ -581,6 +660,7 @@ fun WeatherScreen(
                             item {
                                 WeatherHeroCard(
                                     period = currentPeriod,
+                                    hourlyPeriod = result.currentHourlyPeriod,
                                     locationName = result.locationName,
                                     temperatureUnit = uiState.temperatureUnit,
                                     cardColor = visuals.cardColor.copy(alpha = 0.6f),
@@ -639,7 +719,7 @@ fun RatingPrompt(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Enjoying JustWeather?") },
+        title = { Text("Enjoying Just NWS Weather?") },
         text = { Text("Your rating helps others find this privacy-focused weather app. It only takes a minute!") },
         confirmButton = {
             TextButton(onClick = onRate) {
@@ -658,11 +738,11 @@ fun RatingPrompt(
 fun TutorialOverlay(onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(0) }
     val steps = listOf(
-        "Welcome to JustWeather! Swipe down to refresh the forecast for your location.",
+        "Welcome to Just NWS Weather! Swipe down to refresh the forecast for your location.",
         "Tap the menu icon on the top right to search for a new address or manage saved locations.",
         "Long-press a saved location in the menu to edit its label.",
         "Enable 'Weather Alerts' in the settings menu to get notified about hazardous conditions.",
-        "You're all set! JustWeather is privacy-first: no ads, no tracking, just weather."
+        "You're all set! Just NWS Weather is privacy-first: no ads, no tracking, just weather."
     )
 
     Dialog(

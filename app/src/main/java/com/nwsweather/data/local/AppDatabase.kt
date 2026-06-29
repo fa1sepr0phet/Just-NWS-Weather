@@ -1,14 +1,18 @@
 package com.nwsweather.data.local
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
     entities = [SavedLocationEntity::class, PointCacheEntity::class, WeatherSnapshotEntity::class],
-    version = 2,
-    exportSchema = false
+    version = 6,
+    autoMigrations = [
+        AutoMigration(from = 5, to = 6)
+    ],
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun savedLocationDao(): SavedLocationDao
@@ -26,7 +30,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "just-weather.db"
                 )
-                    .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }
             }
