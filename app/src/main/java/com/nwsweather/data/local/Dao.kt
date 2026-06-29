@@ -14,6 +14,9 @@ interface SavedLocationDao {
     @Query("SELECT * FROM saved_locations ORDER BY displayOrder ASC, label ASC")
     suspend fun getAll(): List<SavedLocationEntity>
 
+    @Query("SELECT * FROM saved_locations WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): SavedLocationEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: SavedLocationEntity)
 

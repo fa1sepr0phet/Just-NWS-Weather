@@ -26,7 +26,6 @@ import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.firstOrNull
 
 class WeatherRepository(
     private val nwsApi: NwsApi,
@@ -134,7 +133,11 @@ class WeatherRepository(
         )
 
         if (!label.isNullOrBlank()) {
-            val maxOrder = savedLocationDao.getMaxOrder() ?: 0
+            val displayOrder = if (existingId != null) {
+                savedLocationDao.getById(existingId)?.displayOrder ?: 0
+            } else {
+                (savedLocationDao.getMaxOrder() ?: 0) + 1
+            }
             savedLocationDao.insert(
                 SavedLocationEntity(
                     id = existingId ?: 0L,
@@ -144,7 +147,7 @@ class WeatherRepository(
                     longitude = longitude,
                     city = point.city,
                     state = point.state,
-                    displayOrder = if (existingId != null) 0 else maxOrder + 1
+                    displayOrder = displayOrder
                 )
             )
         }

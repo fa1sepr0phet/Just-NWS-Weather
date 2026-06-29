@@ -6,6 +6,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Looper
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -45,7 +46,13 @@ class AndroidLocationClient(
                 }
 
                 if (provider != null) {
-                    locationManager.requestSingleUpdate(provider, listener, null)
+                    locationManager.requestLocationUpdates(
+                        provider,
+                        0L,
+                        0f,
+                        listener,
+                        Looper.getMainLooper()
+                    )
                 } else {
                     continuation.resume(null)
                 }

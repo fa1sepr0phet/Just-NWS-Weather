@@ -1,106 +1,140 @@
 # Privacy Policy
 
-**Last updated: 29 April 2026**
+**Last updated: June 29, 2026**
 
----
+## Purpose
 
-## Overview
+Just NWS Weather is built to avoid ads, analytics, and user tracking.
 
-This application is designed with privacy as a core principle.
+This document is meant to describe what the app actually does today, including where location-related data is stored locally and when data leaves the device to make weather, geocoding, widgets, and notifications work.
 
-It does not collect, store, or share personal data beyond what is required for its core functionality.
+## Short version
 
----
+- No advertising SDKs
+- No analytics or tracking SDKs
+- No user accounts
+- No developer-run backend for user profiles or monetization
+- Weather data comes from the U.S. National Weather Service
+- Some location-related data is stored locally on your device
+- Some features rely on Android system services or platform providers
+- Android backup and restore may copy local app data, depending on OS settings
 
-## Information Collection
+## What this app does not do
 
-This app does **not** collect personally identifiable information.
+This app does not include:
 
-- No analytics are used  
-- No tracking technologies are included  
-- No user accounts are required  
+- advertising SDKs
+- analytics SDKs
+- attribution or marketing trackers
+- crash-reporting SDKs
+- user accounts or sign-in
 
----
+The app's code does not send data to a developer-controlled server for profiling, ad targeting, or sale of user data.
 
-## Location Data
+## Data this app can handle
 
-If you choose to use location-based features:
+Depending on which features you use, the app can handle:
 
-- Your device location is used solely to retrieve weather data  
-- Location data is not stored, logged, or retained by the application  
-- Location access is optional and can be denied at any time  
+- current device location
+- manually entered address search text
+- saved locations, labels, and coordinates
+- cached forecast and alert data tied to a location
+- app settings and notification preferences
 
----
+Some of this information may be personal or sensitive depending on how you use the app. For example, a saved label such as `Home` or a saved street address can be meaningful personal information even if it never leaves your device except through system-managed services or backup flows.
 
-## Network Requests
+## Permissions
 
-This app makes network requests to retrieve weather and location data.
+- Location permission is optional for current-location weather lookup. You can deny it and use manual search instead.
+- As the code stands today, the app may request location permission when the app starts.
+- On Android 13 and newer, the app may request notification permission on first launch.
+- Notification permission is used for weather alerts and status-bar temperature features.
 
-### National Weather Service (NWS)
+## Network and system-service requests
 
-- Weather forecasts and related data are retrieved from official National Weather Service APIs  
-- These requests include location coordinates (latitude/longitude) to return relevant weather data  
+The app currently makes network or system-service requests for:
 
-### Address Lookup (Geocoding)
+- weather forecasts, point metadata, and alerts from `https://api.weather.gov/`
+- address geocoding through Android's `Geocoder` when you run a full address search
+- external browser or app links only when you tap them, such as NWS forecast pages, radar, email, or the Play Store
 
-- Address search functionality uses Android’s built-in `Geocoder`  
-- Depending on the device and Android version, geocoding requests may be handled by a system-provided backend (such as a Google location service)  
-- This functionality is part of the Android operating system and not a third-party library included by this application  
+The app does not add advertising IDs, analytics IDs, or account tokens to these requests.
 
----
+As with any network request, the remote service or system backend may still see your IP address and standard network metadata.
 
-## Data Handling
+## Build variants and platform services
 
-- The app does not store or log network requests  
-- No data is sent to analytics, advertising, or tracking services  
-- The app does not include any third-party SDKs for data collection  
+- The Play build uses Google Play Services for current-location lookup.
+- The FOSS build uses Android's platform `LocationManager` for current-location lookup.
+- Manual search suggestions are loaded locally from a bundled U.S. city database.
+- Final address resolution still uses Android's `Geocoder`, and its backend may vary by device, Android version, or OEM.
 
-Only the minimum data required to provide weather and location functionality is used.
+Where the app relies on Android platform services or Google Play Services, those platform providers may have their own privacy behavior and policies outside the direct control of this app.
 
----
+## Local storage
 
-## Data Flow
+The app stores data locally in Room and SharedPreferences, including:
 
-| Feature | Data involved | Where it goes | Stored? | Notes |
-|---|---|---|---|---|
-| Weather forecast lookup | Latitude/longitude or selected location | National Weather Service API | No remote storage by this app | Required to retrieve local forecast data |
-| Current device location | Device latitude/longitude | Used locally, then sent to NWS for forecast lookup | Not stored remotely | Location permission is optional and user-controlled |
-| Manual address search | Address/search text | Android Geocoder / system geocoding backend | Not stored unless saved as favorite | Backend may vary by Android device/OEM |
-| Saved locations | Location name and coordinates | Local device database via Room | Yes, locally only | Used for favorites and quick access |
-| Home screen widget | Selected/saved weather location and forecast data | NWS API during refresh | Locally cached as needed by Android/widget system | Used to update the widget |
-| Background updates | Saved/widget location | NWS API | No remote storage by this app | Uses WorkManager for scheduled refreshes |
-| App settings/preferences | User preferences | Local device only | Yes, locally only | Not transmitted externally |
+- saved locations: label, address, city/state, latitude, longitude, and display order
+- point cache: NWS grid and forecast metadata for previously used coordinates
+- latest weather snapshot: location name, latitude, longitude, current forecast details, and update timestamp
+- settings: theme, temperature unit, notification toggles, tutorial/help state, rating prompt state, and last notified alert ID
+- a recent movement timestamp used by the movement tracker
 
----
+This data is stored in normal app-private Android storage.
 
+The app does not currently add its own encryption layer on top of Android's app sandbox.
 
-## Data Storage
+## Background behavior
 
-- Saved locations are stored locally on your device  
-- No user data is transmitted to external servers for storage  
+- The app schedules periodic background work through Android WorkManager after app startup.
+- Those background jobs may refresh weather data for the last stored location or weather snapshot.
+- Widget actions can trigger immediate refreshes.
+- If a widget is present, the app may also queue a refresh on some device events, such as the user unlocking the phone.
+- If weather alerts or status-bar weather are enabled, refreshed data may be used to update those features.
 
----
+## Notifications and lock screen visibility
 
-## Third-Party Services
+- If severe weather alerts are enabled, the app may show an alert notification when a new alert is seen for the last refreshed location.
+- If status-bar temperature is enabled, the app shows an ongoing notification containing the location name, current temperature, and short forecast.
+- That status-bar notification is currently marked public and can appear on the lock screen.
 
-This app does not include third-party SDKs that collect user data.
+## Retention and deletion
 
-However, certain platform-level services (such as Android’s Geocoder) may rely on system-provided backends outside the control of this application.
+- Saved locations stay on the device until you delete them or use the app's `Clear App Data` action.
+- Cached point data and the latest weather snapshot stay on the device until replaced or cleared.
+- The movement timestamp is deleted once the app decides the device has been stationary long enough.
+- The app does not run a developer-controlled remote database for this data.
 
----
+## Android backup and restore
 
-## Children’s Privacy
+The app currently has Android backup enabled in the manifest.
 
-This app does not knowingly collect personal data from users of any age.
+That means some locally stored app data may be included in Android backup and restore flows, depending on the device, Android version, and the user's OS settings.
 
----
+This behavior is controlled by the Android platform, not by a server operated by this app.
 
-## Changes to This Policy
+## Security notes
 
-If this policy changes in the future, updates will be reflected in this document.
+- Weather API requests use HTTPS.
+- The app relies on standard Android and OkHttp TLS validation.
+- The app does not currently use certificate pinning or a custom network security configuration.
+- The app does not ship an advertising, analytics, or crash-reporting SDK.
 
----
+## Third-party and platform services
+
+The app's own code does not include third-party data collection SDKs, but the following external or platform services may still be involved:
+
+- National Weather Service (`api.weather.gov`)
+- Android `Geocoder` backend
+- Google Play Services location APIs in the Play build
+
+## Changes
+
+This document describes the code as it stands today.
+
+If the app's data flows, permissions, or storage behavior change, this policy should be updated to match.
 
 ## Contact
 
-If you have any questions or concerns, please open an issue on the GitHub repository.
+If you have questions or want to report a privacy concern, please open an issue on the GitHub repository.

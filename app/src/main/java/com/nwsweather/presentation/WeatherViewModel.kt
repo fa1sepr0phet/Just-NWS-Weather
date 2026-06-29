@@ -12,8 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -263,26 +261,26 @@ class WeatherViewModel(
                 settingsManager.unit,
                 settingsManager.notificationsEnabled,
                 settingsManager.statusBarTempEnabled,
-                settingsManager.showTutorial,
-                settingsManager.hasSeenSearchHelp,
-                settingsManager.hasSeenFavoritesHelp
-            ) { args ->
-                val theme = args[0] as AppTheme
-                val unit = args[1] as TemperatureUnit
-                val notifications = args[2] as Boolean
-                val statusBarTemp = args[3] as Boolean
-                val showTutorial = args[4] as Boolean
-                val seenSearch = args[5] as Boolean
-                val seenFavorites = args[6] as Boolean
-
+                settingsManager.showTutorial
+            ) { theme, unit, notifications, statusBarTemp, showTutorial ->
+                ObservedSettings(
+                    theme = theme,
+                    temperatureUnit = unit,
+                    notificationsEnabled = notifications,
+                    statusBarTempEnabled = statusBarTemp,
+                    showTutorial = showTutorial
+                )
+            }.combine(settingsManager.hasSeenSearchHelp) { settings, seenSearch ->
+                settings.copy(hasSeenSearchHelp = seenSearch)
+            }.combine(settingsManager.hasSeenFavoritesHelp) { settings, seenFavorites ->
                 _uiState.update {
                     it.copy(
-                        theme = theme,
-                        temperatureUnit = unit,
-                        notificationsEnabled = notifications,
-                        statusBarTempEnabled = statusBarTemp,
-                        showTutorial = showTutorial,
-                        showSearchHelp = !seenSearch,
+                        theme = settings.theme,
+                        temperatureUnit = settings.temperatureUnit,
+                        notificationsEnabled = settings.notificationsEnabled,
+                        statusBarTempEnabled = settings.statusBarTempEnabled,
+                        showTutorial = settings.showTutorial,
+                        showSearchHelp = !settings.hasSeenSearchHelp,
                         showFavoritesHelp = !seenFavorites
                     )
                 }
@@ -320,4 +318,13 @@ class WeatherViewModel(
                 }
         }
     }
+
+    private data class ObservedSettings(
+        val theme: AppTheme,
+        val temperatureUnit: TemperatureUnit,
+        val notificationsEnabled: Boolean,
+        val statusBarTempEnabled: Boolean,
+        val showTutorial: Boolean,
+        val hasSeenSearchHelp: Boolean = false
+    )
 }

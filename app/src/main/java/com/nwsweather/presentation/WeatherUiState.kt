@@ -24,6 +24,7 @@ data class WeatherUiState(
     val theme: AppTheme = AppTheme.SYSTEM,
     val temperatureUnit: TemperatureUnit = TemperatureUnit.FAHRENHEIT,
     val notificationsEnabled: Boolean = false,
+    val statusBarTempEnabled: Boolean = false,
     val showTutorial: Boolean = false,
     val showRatingPrompt: Boolean = false,
     val showSearchHelp: Boolean = false,

@@ -19,6 +19,7 @@ class AppContainer(context: Context) {
         pointCacheDao = database.pointCacheDao(),
         weatherSnapshotDao = database.weatherSnapshotDao(),
         locationClient = locationClient,
+        settingsManager = settingsManager,
         appContext = context.applicationContext
     )
 

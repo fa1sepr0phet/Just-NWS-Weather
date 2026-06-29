@@ -53,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nwsweather.data.local.SavedLocationEntity
@@ -208,7 +209,9 @@ fun WeatherScreen(
                     title = {
                         Text(
                             text = uiState.locationName ?: "Just NWS Weather",
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     },
                     actions = {
@@ -370,7 +373,7 @@ fun WeatherScreen(
                                         ) {
                                             Text("Temperature Unit")
                                             Text(
-                                                text = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT) "°F" else "°C",
+                                                text = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT) "\u00B0F" else "\u00B0C",
                                                 style = MaterialTheme.typography.labelLarge,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
@@ -647,7 +650,7 @@ fun WeatherScreen(
                     if (uiState.isLoading) {
                         item {
                             Text(
-                                text = "Loading forecast…",
+                                text = "Loading forecast...",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = visuals.appBarContentColor
                             )
@@ -740,7 +743,7 @@ fun TutorialOverlay(onDismiss: () -> Unit) {
     val steps = listOf(
         "Welcome to Just NWS Weather! Swipe down to refresh the forecast for your location.",
         "Tap the menu icon on the top right to search for a new address or manage saved locations.",
-        "Long-press a saved location in the menu to edit its label.",
+        "Tap a saved location in the menu to edit its label, or drag chips on the main screen to reorder them.",
         "Enable 'Weather Alerts' in the settings menu to get notified about hazardous conditions.",
         "You're all set! Just NWS Weather is privacy-first: no ads, no tracking, just weather."
     )
