@@ -17,6 +17,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.nwsweather.MainActivity
+import com.nwsweather.presentation.TemperatureUnit
 
 class NotificationHelper(private val context: Context) {
     private val notificationManager =
@@ -83,6 +84,8 @@ class NotificationHelper(private val context: Context) {
 
     fun updateStatusBarTemperature(
         temp: Int,
+        sourceUnit: String,
+        targetUnit: TemperatureUnit,
         locationName: String,
         forecast: String,
         isDaytime: Boolean
@@ -99,7 +102,9 @@ class NotificationHelper(private val context: Context) {
             }
         }
 
-        val bitmap = createTemperatureBitmap(temp)
+        val displayTemp = convertTemperature(temp, sourceUnit, targetUnit)
+        val displayLabel = formatTemperature(temp, sourceUnit, targetUnit)
+        val bitmap = createTemperatureBitmap(displayTemp)
         val icon = IconCompat.createWithBitmap(bitmap)
 
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -114,7 +119,7 @@ class NotificationHelper(private val context: Context) {
 
         val notification = NotificationCompat.Builder(context, STATUS_BAR_CHANNEL_ID)
             .setSmallIcon(icon)
-            .setContentTitle("$temp\u00B0 in $locationName")
+            .setContentTitle("$displayLabel in $locationName")
             .setContentText(forecast)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
@@ -169,7 +174,7 @@ class NotificationHelper(private val context: Context) {
 
     companion object {
         private const val CHANNEL_ID = "weather_alerts"
-        private const val STATUS_BAR_CHANNEL_ID = "status_bar_temp_v6"
+        private const val STATUS_BAR_CHANNEL_ID = "status_bar_temp_v8"
         private const val NOTIFICATION_ID = 1001
         private const val STATUS_BAR_NOTIFICATION_ID = 1002
     }

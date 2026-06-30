@@ -83,6 +83,7 @@ class WeatherViewModel(
 
     fun onTemperatureUnitChanged(unit: TemperatureUnit) {
         settingsManager.setTemperatureUnit(unit)
+        refreshStatusBarTemp()
     }
 
     fun onNotificationsToggleChanged(enabled: Boolean) {
@@ -108,10 +109,12 @@ class WeatherViewModel(
             val snapshot = repository.getLatestSnapshot()
             if (snapshot != null) {
                 NotificationHelper(repository.appContext).updateStatusBarTemperature(
-                    snapshot.temperature,
-                    snapshot.locationName,
-                    snapshot.shortForecast,
-                    snapshot.isDaytime
+                    temp = snapshot.temperature,
+                    sourceUnit = snapshot.temperatureUnit,
+                    targetUnit = settingsManager.unit.value,
+                    locationName = snapshot.locationName,
+                    forecast = snapshot.shortForecast,
+                    isDaytime = snapshot.isDaytime
                 )
             }
         }

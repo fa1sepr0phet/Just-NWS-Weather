@@ -40,6 +40,8 @@ class WidgetRefreshWorker(
                 if (period != null) {
                     helper.updateStatusBarTemperature(
                         temp = period.temperature,
+                        sourceUnit = period.temperatureUnit,
+                        targetUnit = settings.unit.value,
                         locationName = result.locationName,
                         forecast = period.shortForecast ?: "",
                         isDaytime = period.isDaytime

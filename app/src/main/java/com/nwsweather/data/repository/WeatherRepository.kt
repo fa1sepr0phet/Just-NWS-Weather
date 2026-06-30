@@ -260,11 +260,14 @@ class WeatherRepository(
         )
 
         if (settingsManager.statusBarTempEnabled.value) {
+            val temperatureUnit = hourly?.temperatureUnit ?: current.temperatureUnit
             NotificationHelper(appContext).updateStatusBarTemperature(
-                temperature, 
-                result.locationName,
-                shortForecast,
-                isDaytime
+                temp = temperature,
+                sourceUnit = temperatureUnit,
+                targetUnit = settingsManager.unit.value,
+                locationName = result.locationName,
+                forecast = shortForecast,
+                isDaytime = isDaytime
             )
         } else {
             NotificationHelper(appContext).cancelStatusBarTemperature()
