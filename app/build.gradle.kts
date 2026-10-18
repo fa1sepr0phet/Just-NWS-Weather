@@ -25,8 +25,8 @@ android {
         applicationId = "com.nwsweather.myapp"
         minSdk = 27
         targetSdk = 36
-        versionCode = 106
-        versionName = "12.6"
+        versionCode = 108
+        versionName = "12.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -88,6 +88,7 @@ ksp {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.02.00")
 
     implementation("androidx.core:core-ktx:1.15.0")

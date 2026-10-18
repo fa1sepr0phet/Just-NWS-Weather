@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import com.nwsweather.di.AppContainer
 import com.nwsweather.util.NotificationHelper
 import com.nwsweather.widget.WeatherAppWidget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
@@ -25,7 +26,7 @@ class WidgetRefreshWorker(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         runCatching {
-            val container = AppContainer(applicationContext)
+            val container = (applicationContext as com.nwsweather.NwsWeatherApp).container
             val repository = container.weatherRepository
             val settings = container.settingsManager
             
@@ -60,6 +61,9 @@ class WidgetRefreshWorker(
         }.fold(
             onSuccess = { Result.success() },
             onFailure = { 
+                if (it is CancellationException) throw it
+                // A temporary network/server failure must not remove the last
+                // temperature while WorkManager waits to retry.
                 it.printStackTrace()
                 Result.retry() 
             }
@@ -97,7 +101,7 @@ class WidgetRefreshWorker(
 
             WorkManager.getInstance(context).enqueueUniqueWork(
                 IMMEDIATE_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 request
             )
         }

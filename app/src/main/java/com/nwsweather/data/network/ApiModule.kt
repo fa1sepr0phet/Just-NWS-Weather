@@ -24,6 +24,7 @@ object ApiModule {
     }
 
     private val nwsClient = OkHttpClient.Builder()
+        .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor(nwsHeaders)
         .build()
 

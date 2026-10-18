@@ -151,7 +151,7 @@ fun WeatherHeroCard(
                 WeatherDetailItem(
                     icon = Icons.Outlined.WbSunny,
                     label = "UV",
-                    value = "4 (Mod)",
+                    value = "Unavailable",
                     textColor = textColor
                 )
             }

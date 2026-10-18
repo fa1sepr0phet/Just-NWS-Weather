@@ -110,7 +110,8 @@ class NotificationHelper(private val context: Context) {
         targetUnit: TemperatureUnit,
         locationName: String,
         forecast: String,
-        isDaytime: Boolean
+        isDaytime: Boolean,
+        readingEpochMs: Long = System.currentTimeMillis()
     ) {
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -124,6 +125,8 @@ class NotificationHelper(private val context: Context) {
             }
         }
 
+        // Doze can defer refresh work for hours. Keep the last reading visible
+        // with its timestamp instead of expiring the notification while asleep.
         val displayTemp = convertTemperature(temp, sourceUnit, targetUnit)
         val displayLabel = formatTemperature(temp, sourceUnit, targetUnit)
         val bitmap = createTemperatureBitmap(displayTemp)
@@ -142,14 +145,15 @@ class NotificationHelper(private val context: Context) {
         val notification = NotificationCompat.Builder(context, STATUS_BAR_CHANNEL_ID)
             .setSmallIcon(icon)
             .setContentTitle("$displayLabel in $locationName")
-            .setContentText(forecast)
+            .setContentText("Last reading: $forecast")
             .setOngoing(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setOnlyAlertOnce(true)
             .setSilent(true) // Silent to prevent vibration/sound on every update
-            .setShowWhen(false)
+            .setWhen(readingEpochMs)
+            .setShowWhen(true)
             .setLocalOnly(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()

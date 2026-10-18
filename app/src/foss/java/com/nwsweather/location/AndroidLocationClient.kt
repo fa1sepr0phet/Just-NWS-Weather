@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.os.Looper
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import android.os.SystemClock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AndroidLocationClient(
     private val context: Context
@@ -16,12 +18,15 @@ class AndroidLocationClient(
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
     @SuppressLint("MissingPermission")
-    override suspend fun getCurrentLocation(): DeviceCoordinates? {
+    override suspend fun getCurrentLocation(): DeviceCoordinates? = withTimeoutOrNull(20_000L) { readLocation() }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun readLocation(): DeviceCoordinates? {
         val lastKnown = locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
             ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
             ?: locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
 
-        if (lastKnown != null) {
+        if (lastKnown != null && SystemClock.elapsedRealtimeNanos() - lastKnown.elapsedRealtimeNanos in 0..120_000_000_000L) {
             return DeviceCoordinates(lastKnown.latitude, lastKnown.longitude)
         }
 

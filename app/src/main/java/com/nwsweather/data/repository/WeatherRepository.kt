@@ -26,6 +26,9 @@ import retrofit2.HttpException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import com.nwsweather.util.WeatherFreshness
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +62,7 @@ class WeatherRepository(
         savedLocationDao.deleteAll()
         pointCacheDao.deleteAll()
         weatherSnapshotDao.deleteAll()
+        NotificationHelper(appContext).cancelStatusBarTemperature()
         WeatherAppWidget().updateAll(appContext)
     }
 
@@ -217,21 +221,17 @@ class WeatherRepository(
     }
 
     private suspend fun saveSnapshot(result: ForecastLoadResult) {
-        val current = result.currentPeriod ?: return
-        val hourly = result.currentHourlyPeriod
-        val obs = result.observation
-        val observationTemperature = obs?.temperature?.value
-        val observationTemperatureUnit = observationTemperatureUnit(obs)
-
-        val temperature = observationTemperature?.let {
-            convertTemperature(it, observationTemperatureUnit, TemperatureUnit.FAHRENHEIT)
-        } ?: hourly?.temperature ?: current.temperature
-        val temperatureUnit = if (observationTemperature != null) {
-            "F"
-        } else {
-            hourly?.temperatureUnit ?: current.temperatureUnit
+        if (result.source == ForecastSource.WidgetRefresh) {
+            val selected = weatherSnapshotDao.getLatest()
+            // Do not replace a location selected while this background request was in flight.
+            if (selected != null && (selected.latitude != result.latitude || selected.longitude != result.longitude)) return
         }
-        
+        val current = result.currentPeriod ?: error("No current forecast is available. Please try again.")
+        val hourly = result.currentHourlyPeriod
+        val obs = result.freshObservation
+        val temperature = convertTemperature(result.currentTemperatureValue, result.currentTemperatureUnit, TemperatureUnit.FAHRENHEIT)
+        val temperatureUnit = "F"
+
         val humidity = obs?.relativeHumidity?.value?.toInt() 
             ?: current.relativeHumidity?.value?.toInt() 
             ?: hourly?.relativeHumidity?.value?.toInt()
@@ -253,12 +253,12 @@ class WeatherRepository(
                 longitude = result.longitude,
                 temperature = temperature,
                 temperatureUnit = temperatureUnit,
-                shortForecast = shortForecast,
+                shortForecast = "${if (obs != null) "Observed" else "Hourly forecast"}: $shortForecast",
                 humidity = humidity,
                 windSpeed = windSpeed,
                 windDirection = windDirection,
-                uvIndex = 4, // Placeholder UV index
-                updatedAtEpochMs = System.currentTimeMillis(),
+                uvIndex = null, // No UV readings are supplied by this API.
+                updatedAtEpochMs = result.readingEpochMs,
                 isDaytime = isDaytime
             )
         )
@@ -269,8 +269,9 @@ class WeatherRepository(
                 sourceUnit = temperatureUnit,
                 targetUnit = settingsManager.unit.value,
                 locationName = result.locationName,
-                forecast = shortForecast,
-                isDaytime = isDaytime
+                forecast = "${if (obs != null) "Observed" else "Hourly forecast"}: $shortForecast",
+                isDaytime = isDaytime,
+                readingEpochMs = result.readingEpochMs
             )
         } else {
             NotificationHelper(appContext).cancelStatusBarTemperature()
@@ -305,6 +306,8 @@ class WeatherRepository(
                 throw Exception("Unable to retrieve location. The National Weather Service only provides data for the United States.")
             }
             if (cached != null) return cached
+            throw e
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (cached != null) return cached
@@ -359,16 +362,15 @@ class WeatherRepository(
         val hourlyForecastDeferred = async {
             try {
                 nwsApi.getForecast(point.forecastHourlyUrl)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 null
             }
         }
         val alertsDeferred = async {
-            try {
-                nwsApi.getActiveAlerts("$roundedLatitude,$roundedLongitude").features.map { it.properties }
-            } catch (e: Exception) {
-                emptyList<NwsAlertProperties>()
-            }
+            // A failed alert request must not look like a successful "no alerts" response.
+            nwsApi.getActiveAlerts("$roundedLatitude,$roundedLongitude").features.map { it.properties }
         }
         val observationDeferred = async { fetchLatestObservation(point) }
 
@@ -383,15 +385,31 @@ class WeatherRepository(
     private suspend fun fetchLatestObservation(point: PointCacheEntity): NwsObservationProperties? {
         val stationsUrl = point.observationStations ?: return null
 
-        return try {
-            val stations = nwsApi.getStations(stationsUrl)
-            val stationId = stations.features.firstOrNull()?.properties?.stationIdentifier ?: return null
-            nwsApi.getLatestObservation("https://api.weather.gov/stations/$stationId/observations/latest").properties
-        } catch (e: Exception) {
-            null
+        return supervisorScope {
+            val stations = try {
+                nwsApi.getStations(stationsUrl)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                return@supervisorScope null
+            }
+            // Keep the search local and bounded; a nearby station may be offline or delayed.
+            stations.features.take(3).map { station ->
+                async {
+                    try {
+                        val id = station.properties.stationIdentifier
+                        nwsApi.getLatestObservation("https://api.weather.gov/stations/$id/observations/latest").properties
+                            .takeIf { it.temperature?.value?.isFinite() == true && WeatherFreshness.isRecent(it.timestamp) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+            }.mapNotNull { it.await() }
+                .maxByOrNull { WeatherFreshness.epochMillis(it.timestamp) ?: Long.MIN_VALUE }
         }
     }
-
     private fun buildDisplayName(
         preferredLabel: String? = null,
         city: String? = null,
@@ -417,14 +435,6 @@ class WeatherRepository(
         return listOfNotNull(city, state).joinToString(", ").takeIf { it.isNotBlank() }
             ?: fallbackAddress
     }
-
-    private fun observationTemperatureUnit(observation: NwsObservationProperties?): String {
-        val unitCode = observation?.temperature?.unitCode.orEmpty()
-        return when {
-            unitCode.contains("degF", ignoreCase = true) -> "F"
-            else -> "C"
-        }
-    }
 }
 
 data class ForecastLoadResult(
@@ -436,41 +446,48 @@ data class ForecastLoadResult(
     val longitude: Double,
     val source: ForecastSource,
     val observation: com.nwsweather.data.model.NwsObservationProperties? = null,
-    val timeZoneId: String? = null
+    val timeZoneId: String? = null,
+    val fetchedAtEpochMs: Long = System.currentTimeMillis()
 ) {
+    val freshObservation: NwsObservationProperties?
+        get() = observation?.takeIf { WeatherFreshness.isRecent(it.timestamp, fetchedAtEpochMs) && it.temperature?.value?.isFinite() == true }
+
+    val readingEpochMs: Long
+        get() = WeatherFreshness.epochMillis(freshObservation?.timestamp) ?: fetchedAtEpochMs
+
     val currentPeriod: NwsForecastPeriod?
-        get() = forecast.properties.periods.firstOrNull()
+        get() = forecast.properties.periods.firstOrNull { WeatherFreshness.coversNow(it.startTime, it.endTime, fetchedAtEpochMs) }
 
     val currentHourlyPeriod: NwsForecastPeriod?
-        get() = hourlyForecast?.properties?.periods?.firstOrNull()
+        get() = hourlyForecast?.properties?.periods?.firstOrNull { WeatherFreshness.coversNow(it.startTime, it.endTime, fetchedAtEpochMs) }
 
     val upcomingPeriods: List<NwsForecastPeriod>
-        get() = forecast.properties.periods.drop(1)
+        get() = forecast.properties.periods.filter { (WeatherFreshness.epochMillis(it.startTime) ?: 0L) > System.currentTimeMillis() }
 
     val currentTemperatureValue: Double
-        get() = observation?.temperature?.value ?: currentHourlyPeriod?.temperature?.toDouble() ?: currentPeriod?.temperature?.toDouble() ?: 0.0
+        get() = freshObservation?.temperature?.value ?: currentHourlyPeriod?.temperature?.toDouble() ?: error("No recent observation or current hourly forecast is available. Please try again.")
 
     val currentTemperatureUnit: String
         get() = when {
-            observation?.temperature?.value != null -> observation?.temperature?.unitCode?.let { unitCode ->
+            freshObservation?.temperature?.value != null -> freshObservation?.temperature?.unitCode?.let { unitCode ->
                 if (unitCode.contains("degF", ignoreCase = true)) "F" else "C"
             } ?: "C"
             else -> currentHourlyPeriod?.temperatureUnit ?: currentPeriod?.temperatureUnit ?: "F"
         }
 
     val currentShortForecast: String
-        get() = observation?.textDescription?.takeIf { it.isNotBlank() } ?: currentHourlyPeriod?.shortForecast ?: currentPeriod?.shortForecast ?: "Unknown"
+        get() = freshObservation?.textDescription?.takeIf { it.isNotBlank() } ?: currentHourlyPeriod?.shortForecast ?: currentPeriod?.shortForecast ?: "Unknown"
 
     val isDaytime: Boolean
         get() = currentHourlyPeriod?.isDaytime ?: currentPeriod?.isDaytime ?: true
 
     val currentReadingTimestampLabel: String?
-        get() = observation?.timestamp?.let { timestamp ->
+        get() = freshObservation?.timestamp?.let { timestamp ->
             formatReadingTimestampLabel(
                 prefix = "Observed",
                 timestamp = timestamp,
                 timeZoneId = timeZoneId,
-                stationId = observation.stationId
+                stationId = freshObservation?.stationId
             )
         } ?: currentHourlyPeriod?.startTime?.let { startTime ->
             formatReadingTimestampLabel(
@@ -512,7 +529,7 @@ private fun formatReadingTimestampLabel(
     val zoneId = runCatching {
         timeZoneId?.takeIf { it.isNotBlank() }?.let(ZoneId::of) ?: ZoneId.systemDefault()
     }.getOrDefault(ZoneId.systemDefault())
-    val formatter = DateTimeFormatter.ofPattern("h:mm a z", Locale.getDefault())
+    val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a z", Locale.getDefault())
     val formattedTime = parsedTimestamp.atZoneSameInstant(zoneId).format(formatter)
 
     return buildString {

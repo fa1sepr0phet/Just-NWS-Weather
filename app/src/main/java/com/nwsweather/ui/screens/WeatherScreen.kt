@@ -569,6 +569,15 @@ fun WeatherScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    if (uiState.refreshFailed) {
+                        item {
+                            Text(
+                                text = "Refresh failed. Weather and alert information may be outdated.",
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    }
                     if (uiState.forecastResult?.alerts?.isNotEmpty() == true) {
                         item {
                             ElevatedCard(

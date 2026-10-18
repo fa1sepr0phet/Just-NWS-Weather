@@ -21,6 +21,7 @@ data class WeatherUiState(
     val forecastResult: ForecastLoadResult? = null,
     val savedLocations: List<SavedLocationEntity> = emptyList(),
     val errorMessage: String? = null,
+    val refreshFailed: Boolean = false,
     val theme: AppTheme = AppTheme.SYSTEM,
     val temperatureUnit: TemperatureUnit = TemperatureUnit.FAHRENHEIT,
     val notificationsEnabled: Boolean = false,

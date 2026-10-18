@@ -7,6 +7,8 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import android.os.SystemClock
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AndroidLocationClient(
     context: Context
@@ -14,7 +16,10 @@ class AndroidLocationClient(
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
     @SuppressLint("MissingPermission")
-    override suspend fun getCurrentLocation(): DeviceCoordinates? {
+    override suspend fun getCurrentLocation(): DeviceCoordinates? = withTimeoutOrNull(20_000L) { readLocation() }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun readLocation(): DeviceCoordinates? {
         val currentLocation = suspendCancellableCoroutine<DeviceCoordinates?> { continuation ->
             val tokenSource = CancellationTokenSource()
             fusedLocationClient.getCurrentLocation(
@@ -22,7 +27,7 @@ class AndroidLocationClient(
                 tokenSource.token
             ).addOnSuccessListener { location ->
                 continuation.resume(
-                    location?.let { DeviceCoordinates(it.latitude, it.longitude) }
+                    location?.takeIf { SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos in 0..120_000_000_000L }?.let { DeviceCoordinates(it.latitude, it.longitude) }
                 )
             }.addOnFailureListener {
                 continuation.resume(null)
@@ -36,7 +41,7 @@ class AndroidLocationClient(
             fusedLocationClient.lastLocation
                 .addOnSuccessListener { location ->
                     continuation.resume(
-                        location?.let { DeviceCoordinates(it.latitude, it.longitude) }
+                        location?.takeIf { SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos in 0..120_000_000_000L }?.let { DeviceCoordinates(it.latitude, it.longitude) }
                     )
                 }
                 .addOnFailureListener {

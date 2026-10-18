@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
+import com.nwsweather.util.WeatherFreshness
+import com.nwsweather.worker.WidgetRefreshWorker
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -27,6 +30,7 @@ class WeatherViewModel(
 
     private var searchJob: Job? = null
     private var refreshJob: Job? = null
+    private var loadJob: Job? = null
 
     init {
         observeSavedLocations()
@@ -43,7 +47,7 @@ class WeatherViewModel(
             val snapshot = repository.getLatestSnapshot()
             val tenMinutesAgo = System.currentTimeMillis() - (10 * 60 * 1000)
             
-            if (snapshot != null) {
+            if (snapshot != null && loadJob?.isActive != true) {
                 if (snapshot.updatedAtEpochMs < tenMinutesAgo || _uiState.value.forecastResult == null) {
                     launchLoad {
                         repository.loadForecastForCoordinates(
@@ -56,7 +60,7 @@ class WeatherViewModel(
             }
 
             while (true) {
-                delay(10 * 60 * 1000) // 10 minutes
+                delay(WeatherFreshness.FOREGROUND_REFRESH_MS)
                 refreshForecast()
             }
         }
@@ -126,6 +130,7 @@ class WeatherViewModel(
                 _uiState.update { it.copy(errorMessage = "Notification permission is required for the status bar temperature display.") }
             }
             refreshStatusBarTemp()
+            WidgetRefreshWorker.enqueueImmediate(repository.appContext)
         } else {
             NotificationHelper(repository.appContext).cancelStatusBarTemperature()
         }
@@ -142,7 +147,8 @@ class WeatherViewModel(
                     targetUnit = settingsManager.unit.value,
                     locationName = snapshot.locationName,
                     forecast = snapshot.shortForecast,
-                    isDaytime = snapshot.isDaytime
+                    isDaytime = snapshot.isDaytime,
+                    readingEpochMs = snapshot.updatedAtEpochMs
                 )
             }
         }
@@ -327,6 +333,7 @@ class WeatherViewModel(
     }
 
     private fun launchLoad(block: suspend () -> com.nwsweather.data.repository.ForecastLoadResult): kotlinx.coroutines.Job {
+        loadJob?.cancel()
         return viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             runCatching { block() }
@@ -336,19 +343,22 @@ class WeatherViewModel(
                             isLoading = false,
                             forecastResult = result,
                             locationName = result.locationName,
+                            refreshFailed = false,
                             errorMessage = null
                         )
                     }
                 }
                 .onFailure { error ->
+                    if (error is CancellationException) throw error
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Something went sideways."
+                            refreshFailed = true,
+                            errorMessage = "Weather could not be refreshed. Displayed readings may be outdated. ${error.message.orEmpty()}"
                         )
                     }
                 }
-        }
+        }.also { loadJob = it }
     }
 
     private data class ObservedSettings(

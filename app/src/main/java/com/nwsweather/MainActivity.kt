@@ -20,7 +20,7 @@ import com.nwsweather.ui.screens.WeatherRoute
 import com.nwsweather.ui.theme.NwsWeatherTheme
 
 class MainActivity : ComponentActivity() {
-    private val appContainer by lazy { AppContainer(this) }
+    private val appContainer by lazy { (application as NwsWeatherApp).container }
     private val movementTracker by lazy { MovementTracker(this) }
     private val viewModel: WeatherViewModel by viewModels {
         WeatherViewModelFactory(
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
-            // Just request, we check at runtime in NotificationHelper too
+            viewModel.refreshStatusBarTemp()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
