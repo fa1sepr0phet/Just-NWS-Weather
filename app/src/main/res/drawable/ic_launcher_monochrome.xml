@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Transparent adaptive-icon layer. The launcher supplies the tint.
+     A small transparent gap keeps the sun distinct from the cloud. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M46,24 L46,29 M30,30 L34,35 M24,45 L29,46 M28,61 L32,59 M64,30 L61,35" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M36,59 C32,56 30,51 30,46 C30,37 37,30 46,30 C53,30 59,34 61,41 C51,40 42,47 40,55 C38,56 37,57 36,59 Z" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M43,76 C36,76 32,71 33,65 C34,60 39,57 45,59 C44,50 52,43 61,46 C67,47 71,52 71,58 C78,57 83,62 83,67 C83,72 79,76 73,76 Z" />
+</vector>

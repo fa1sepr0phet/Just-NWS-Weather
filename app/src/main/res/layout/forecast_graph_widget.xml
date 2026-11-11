@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="8dp" android:background="@drawable/forecast_graph_background">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
+        <TextView android:id="@+id/graph_title" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/graph_widget_title" android:textColor="#17283B" android:textStyle="bold" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/graph_refresh" android:layout_width="wrap_content" android:layout_height="48dp" android:gravity="center" android:paddingHorizontal="8dp" android:text="@string/graph_refresh_label" android:textSize="12sp" android:textColor="#174A80" android:contentDescription="@string/graph_refresh_description" />
+    </LinearLayout>
+    <TextView android:id="@+id/graph_window" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/graph_window_label" android:textSize="11sp" android:textColor="#34465A" />
+    <ImageView android:id="@+id/graph_image" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitCenter" android:contentDescription="@string/graph_image_description" />
+    <TextView android:id="@+id/graph_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/graph_loading_label" android:textColor="#34465A" android:textSize="11sp" />
+</LinearLayout>
