@@ -15,6 +15,9 @@ enum class WeatherMood {
     CLOUDY_NIGHT
 }
 
+/** Cards are slightly see-through so the weather animation behind them stays visible. */
+const val WEATHER_CARD_ALPHA = 0.72f
+
 data class WeatherVisuals(
     val background: Brush,
     val cardColor: Color,
@@ -40,6 +43,7 @@ fun mapWeatherMood(forecast: String, isDay: Boolean): WeatherMood {
 
 fun visualsForMood(mood: WeatherMood, resolvedTheme: AppTheme, colors: ColorScheme): WeatherVisuals {
     if (resolvedTheme == AppTheme.MIDNIGHT) {
+        // Midnight has no animation to show through, so its cards stay solid.
         return WeatherVisuals(
             background = Brush.verticalGradient(listOf(Color.Black, Color.Black)),
             cardColor = colors.surface,
@@ -57,12 +61,15 @@ fun visualsForMood(mood: WeatherMood, resolvedTheme: AppTheme, colors: ColorSche
         }
         return WeatherVisuals(
             background = Brush.verticalGradient(listOf(Color(0xFF0E1722), bottom)),
-            cardColor = colors.surface,
+            cardColor = colors.surface.copy(alpha = WEATHER_CARD_ALPHA),
             onCardTextColor = colors.onSurface,
             appBarContentColor = colors.onBackground
         )
     }
-    return lightVisualsForMood(mood).copy(cardColor = colors.surface, onCardTextColor = colors.onSurface)
+    return lightVisualsForMood(mood).copy(
+        cardColor = colors.surface.copy(alpha = WEATHER_CARD_ALPHA),
+        onCardTextColor = colors.onSurface
+    )
 }
 
 private fun lightVisualsForMood(mood: WeatherMood): WeatherVisuals {

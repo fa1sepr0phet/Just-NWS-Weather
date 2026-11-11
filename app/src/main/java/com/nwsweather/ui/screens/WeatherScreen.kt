@@ -21,7 +21,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
@@ -281,6 +283,21 @@ fun WeatherScreen(
                         titleContentColor = visuals.onCardTextColor,
                         actionIconContentColor = visuals.onCardTextColor
                     ),
+                    navigationIcon = {
+                        // Radar lives on the main screen so it is one tap away.
+                        TextButton(
+                            enabled = forecastResult != null,
+                            onClick = { forecastResult?.let { openRadar(it.latitude, it.longitude) } },
+                            colors = ButtonDefaults.textButtonColors(contentColor = visuals.onCardTextColor)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Radar,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text("Radar", modifier = Modifier.padding(start = 6.dp))
+                        }
+                    },
                     title = {
                         Text(
                             text = uiState.locationName ?: "Just NWS Weather",
@@ -306,7 +323,8 @@ fun WeatherScreen(
                             ModalBottomSheet(
                                 onDismissRequest = { showSearchMenu = false },
                                 sheetState = sheetState,
-                                containerColor = visuals.cardColor,
+                                // The sheet stays solid; only the cards on the main screen are see-through.
+                                containerColor = visuals.cardColor.copy(alpha = 1f),
                                 contentColor = visuals.onCardTextColor
                             ) {
                                 Column(
@@ -430,11 +448,6 @@ fun WeatherScreen(
                                             }
                                         }
 
-
-                                        TextButton(
-                                            enabled = forecastResult != null,
-                                            onClick = { forecastResult?.let { openRadar(it.latitude, it.longitude) } }
-                                        ) { Text("Weather radar", color = visuals.onCardTextColor) }
                                     }
                                     val isEditing = uiState.editingLocation != null
 
@@ -782,16 +795,50 @@ fun RatingPrompt(
     )
 }
 
+private data class TutorialStep(val title: String, val body: String)
+
+// Keep these in step with the screen: each one describes something the user can see or tap.
+private val tutorialSteps = listOf(
+    TutorialStep(
+        title = "Welcome to Just NWS Weather",
+        body = "The top card shows the current temperature and conditions, with a timestamp " +
+            "so you can tell how fresh the reading is. Swipe down or tap the refresh icon to update."
+    ),
+    TutorialStep(
+        title = "Find a place",
+        body = "Tap the menu icon in the top right, then search by city, ZIP code, or address, " +
+            "or use your current location. Fill in a label before you search to save the place."
+    ),
+    TutorialStep(
+        title = "Saved places",
+        body = "Saved places appear as chips on the main screen. Tap one to load it, or press and hold, " +
+            "then drag, to reorder. To rename or delete one, open the menu and look under " +
+            "\"Manage saved locations\"."
+    ),
+    TutorialStep(
+        title = "Radar, settings, and theme",
+        body = "Tap Radar in the top left to open the NWS radar for the place you are viewing. " +
+            "Settings and Theme are at the top of the menu: switch between \u00B0F and \u00B0C, " +
+            "turn on Weather Alerts, and keep the temperature in your status bar."
+    ),
+    TutorialStep(
+        title = "Alerts and full forecasts",
+        body = "When the National Weather Service has an alert for the place you are viewing, a banner " +
+            "appears at the top. Tap it for the full text. Tap any forecast card to open the complete " +
+            "forecast on weather.gov."
+    ),
+    TutorialStep(
+        title = "You're all set",
+        body = "You can also add home screen widgets, including an NWS forecast graph. " +
+            "No ads, no tracking, just weather."
+    )
+)
+
 @Composable
 fun TutorialOverlay(onDismiss: () -> Unit) {
     var step by remember { mutableStateOf(0) }
-    val steps = listOf(
-        "Welcome to Just NWS Weather! Swipe down to refresh the forecast for your location.",
-        "Tap the menu icon on the top right to search for a new address or manage saved locations.",
-        "Tap a saved location in the menu to edit its label, or drag chips on the main screen to reorder them.",
-        "Enable 'Weather Alerts' in the settings menu to get notified about hazardous conditions.",
-        "You're all set! Just NWS Weather is privacy-first: no ads, no tracking, just weather."
-    )
+    val steps = tutorialSteps
+    val current = steps[step]
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -824,9 +871,16 @@ fun TutorialOverlay(onDismiss: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
                     Text(
-                        text = steps[step],
+                        text = current.title,
                         style = MaterialTheme.typography.headlineSmall,
                         color = Color.White,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+
+                    Text(
+                        text = current.body,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.9f),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 

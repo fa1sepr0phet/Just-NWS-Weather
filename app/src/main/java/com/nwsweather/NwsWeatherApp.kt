@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.nwsweather.di.AppContainer
 import com.nwsweather.worker.WidgetRefreshWorker
@@ -16,10 +17,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 class NwsWeatherApp : Application() {
     val container by lazy { AppContainer(this) }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val lastRefreshRequestMs = AtomicLong(0L)
     private val unlockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             refreshIfNeeded()
@@ -41,11 +44,21 @@ class NwsWeatherApp : Application() {
     }
 
     private fun refreshIfNeeded() {
+        // Network callbacks fire on every signal change, and a reading's own timestamp is
+        // usually minutes old, so limit how often these events may start a refresh.
+        val now = SystemClock.elapsedRealtime()
+        val last = lastRefreshRequestMs.get()
+        if (last != 0L && now - last < MIN_EVENT_REFRESH_INTERVAL_MS) return
+        if (!lastRefreshRequestMs.compareAndSet(last, now)) return
         scope.launch {
             val snapshot = container.weatherRepository.getLatestSnapshot()
             if (snapshot == null || System.currentTimeMillis() - snapshot.updatedAtEpochMs >= 60_000L) {
                 WidgetRefreshWorker.enqueueImmediate(this@NwsWeatherApp)
             }
         }
+    }
+
+    private companion object {
+        const val MIN_EVENT_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
     }
 }

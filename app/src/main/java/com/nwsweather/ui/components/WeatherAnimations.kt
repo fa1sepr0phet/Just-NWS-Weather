@@ -10,7 +10,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.dp
 import com.nwsweather.ui.theme.WeatherMood
+import kotlin.math.PI
+import kotlin.math.sin
 import kotlin.random.Random
+
+// One loop of each animation. Drop and flake speeds are whole screen passes per loop.
+private const val RAIN_LOOP_MS = 4000
+private const val SNOW_LOOP_MS = 20000
+private const val SNOW_SWAY_CYCLES = 5
 
 @Composable
 fun WeatherAtmosphereAnimation(mood: WeatherMood) {
@@ -31,7 +38,7 @@ fun FallingRain() {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
+            animation = tween(RAIN_LOOP_MS, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rain_progress"
@@ -42,8 +49,10 @@ fun FallingRain() {
             Raindrop(
                 x = Random.nextFloat(),
                 yOffset = Random.nextFloat(),
-                speed = 0.5f + Random.nextFloat() * 0.5f,
-                length = 10f + Random.nextFloat() * 20f
+                // Whole numbers only: each drop must finish a whole number of
+                // screen passes per loop, or it jumps when the loop restarts.
+                speed = Random.nextInt(2, 5).toFloat(),
+                length = 4f + Random.nextFloat() * 8f
             )
         }
     }
@@ -55,8 +64,8 @@ fun FallingRain() {
             drawLine(
                 color = Color.White.copy(alpha = 0.3f),
                 start = Offset(x, y),
-                end = Offset(x, y + drop.length),
-                strokeWidth = 2f
+                end = Offset(x, y + drop.length.dp.toPx()),
+                strokeWidth = 1.dp.toPx()
             )
         }
     }
@@ -69,7 +78,7 @@ fun FallingSnow() {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
+            animation = tween(SNOW_LOOP_MS, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "snow_progress"
@@ -80,8 +89,8 @@ fun FallingSnow() {
             Snowflake(
                 x = Random.nextFloat(),
                 yOffset = Random.nextFloat(),
-                speed = 0.2f + Random.nextFloat() * 0.3f,
-                radius = 2f + Random.nextFloat() * 4f
+                speed = Random.nextInt(1, 4).toFloat(),
+                radius = 1f + Random.nextFloat() * 1.5f
             )
         }
     }
@@ -89,10 +98,12 @@ fun FallingSnow() {
     Canvas(modifier = Modifier.fillMaxSize()) {
         snowflakes.forEach { flake ->
             val y = ((flake.yOffset + progress * flake.speed) % 1f) * size.height
-            val x = (flake.x * size.width) + (Math.sin(progress.toDouble() * 2 * Math.PI + flake.yOffset).toFloat() * 20f)
+            // The sway also completes a whole number of cycles per loop.
+            val sway = sin(progress * 2.0 * PI * SNOW_SWAY_CYCLES + flake.yOffset * 2.0 * PI).toFloat()
+            val x = (flake.x * size.width) + sway * 8.dp.toPx()
             drawCircle(
                 color = Color.White.copy(alpha = 0.7f),
-                radius = flake.radius,
+                radius = flake.radius.dp.toPx(),
                 center = Offset(x, y)
             )
         }
@@ -151,5 +162,6 @@ fun SunnyAnimation() {
     }
 }
 
+/** x and yOffset are fractions of the screen; length and radius are in dp. */
 private data class Raindrop(val x: Float, val yOffset: Float, val speed: Float, val length: Float)
 private data class Snowflake(val x: Float, val yOffset: Float, val speed: Float, val radius: Float)

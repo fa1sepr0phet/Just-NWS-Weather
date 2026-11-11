@@ -59,6 +59,14 @@ class SettingsManager(context: Context) {
         } else it
     }
 
+    /** The app asks for location by itself only once; after that the user has to tap the button. */
+    fun hasRequestedLocationPermission(): Boolean =
+        prefs.getBoolean(KEY_HAS_REQUESTED_LOCATION_PERMISSION, false)
+
+    fun markLocationPermissionRequested() {
+        prefs.edit { putBoolean(KEY_HAS_REQUESTED_LOCATION_PERMISSION, true) }
+    }
+
     fun shouldPromptForRating(): Boolean {
         val weekInMs = 7 * 24 * 60 * 60 * 1000L
         val hasRespondedToRatingPrompt =
@@ -125,5 +133,6 @@ class SettingsManager(context: Context) {
         private const val KEY_HAS_RATED = "has_rated"
         private const val KEY_HAS_RESPONDED_TO_RATING_PROMPT = "has_responded_to_rating_prompt"
         private const val KEY_LAST_NOTIFIED_ALERT_ID = "last_notified_alert_id"
+        private const val KEY_HAS_REQUESTED_LOCATION_PERMISSION = "has_requested_location_permission"
     }
 }

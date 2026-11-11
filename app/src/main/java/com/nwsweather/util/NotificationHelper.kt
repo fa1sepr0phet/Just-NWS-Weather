@@ -16,6 +16,7 @@ import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
+import androidx.core.net.toUri
 import com.nwsweather.MainActivity
 import com.nwsweather.presentation.TemperatureUnit
 
@@ -60,13 +61,18 @@ class NotificationHelper(private val context: Context) {
             }
         }
 
-        val contentIntent = PendingIntent.getBroadcast(
+        // Open the page directly. Android 12+ blocks activities started from a
+        // broadcast receiver in response to a notification tap.
+        val openIntent = if (!detailsUrl.isNullOrBlank()) {
+            Intent(Intent.ACTION_VIEW, detailsUrl.toUri())
+        } else {
+            Intent(context, MainActivity::class.java)
+        }
+        openIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val contentIntent = PendingIntent.getActivity(
             context,
             ALERT_OPEN_REQUEST_CODE,
-            Intent(context, AlertNotificationReceiver::class.java).apply {
-                action = ACTION_OPEN_ALERT_NOTIFICATION
-                putExtra(EXTRA_DETAILS_URL, detailsUrl)
-            },
+            openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val deleteIntent = PendingIntent.getBroadcast(
@@ -199,9 +205,7 @@ class NotificationHelper(private val context: Context) {
     }
 
     companion object {
-        const val ACTION_OPEN_ALERT_NOTIFICATION = "com.nwsweather.action.OPEN_ALERT_NOTIFICATION"
         const val ACTION_DISMISS_ALERT_NOTIFICATION = "com.nwsweather.action.DISMISS_ALERT_NOTIFICATION"
-        const val EXTRA_DETAILS_URL = "extra_details_url"
 
         private const val CHANNEL_ID = "weather_alerts"
         private const val STATUS_BAR_CHANNEL_ID = "status_bar_temp_v8"

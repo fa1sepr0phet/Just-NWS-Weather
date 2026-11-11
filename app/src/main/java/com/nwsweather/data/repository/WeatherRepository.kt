@@ -27,6 +27,9 @@ import com.nwsweather.util.awaitGeocoding
 import android.location.Address
 import com.nwsweather.util.WeatherFreshness
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -142,9 +145,12 @@ class WeatherRepository(
                 })
             }
         } else {
-            @Suppress("DEPRECATION")
-            val addr = geocoder.getFromLocationName(address, 1)?.firstOrNull()
-                ?: error("No location match found for '$address'.")
+            // The pre-Android 13 geocoder call blocks, so keep it off the main thread.
+            val addr = withContext(Dispatchers.IO) {
+                @Suppress("DEPRECATION")
+                val matches = geocoder.getFromLocationName(address, 1)
+                matches?.firstOrNull()
+            } ?: error("No location match found for '$address'.")
             Triple(
                 addr.latitude.roundCoordinate(),
                 addr.longitude.roundCoordinate(),
@@ -201,15 +207,17 @@ class WeatherRepository(
     }
 
     suspend fun loadForecastForSavedLocation(location: SavedLocationEntity): ForecastLoadResult {
-        val forecast = loadForecastForCoordinates(location.latitude, location.longitude)
         val displayName = location.label.ifBlank {
             listOfNotNull(location.city, location.state).joinToString(", ")
                 .ifBlank { location.address }
         }
-        return forecast.copy(
-            locationName = displayName,
-            source = ForecastSource.SavedLocation(location.label)
-        ).also { saveSnapshot(it) }
+        // Pass the name and source down so the snapshot is saved once, with the right name.
+        return loadForecastForCoordinates(
+            latitude = location.latitude,
+            longitude = location.longitude,
+            source = ForecastSource.SavedLocation(location.label),
+            locationName = displayName
+        )
     }
 
     suspend fun loadForecastForCurrentLocation(): ForecastLoadResult {
@@ -226,7 +234,9 @@ class WeatherRepository(
     suspend fun loadForecastForCoordinates(
         latitude: Double,
         longitude: Double,
-        source: ForecastSource = ForecastSource.Coordinates
+        source: ForecastSource = ForecastSource.Coordinates,
+        // Keeps a saved label or searched address when the same place is refreshed.
+        locationName: String? = null
     ): ForecastLoadResult = coroutineScope {
         val roundedLatitude = latitude.roundCoordinate()
         val roundedLongitude = longitude.roundCoordinate()
@@ -235,7 +245,7 @@ class WeatherRepository(
             longitude = roundedLongitude
         )
 
-        val displayName = buildDisplayName(
+        val displayName = locationName?.takeIf { it.isNotBlank() } ?: buildDisplayName(
             city = point.city,
             state = point.state,
             fallbackAddress = "$roundedLatitude, $roundedLongitude"
@@ -274,7 +284,7 @@ class WeatherRepository(
         val shortForecast = obs?.textDescription?.takeIf { it.isNotBlank() } 
             ?: (hourly?.shortForecast ?: current?.shortForecast).orEmpty().ifBlank { "Forecast unavailable" }
 
-        val windSpeed = obs?.windSpeed?.value?.let { "${it.toInt()} km/h" }
+        val windSpeed = observedWindSpeedMph(obs?.windSpeed?.value, obs?.windSpeed?.unitCode)
             ?: (hourly?.windSpeed ?: current?.windSpeed).orEmpty().ifBlank { "--" }
         
         val windDirection = (hourly?.windDirection ?: current?.windDirection).orEmpty().ifBlank { "--" }
@@ -572,6 +582,22 @@ private data class NwsWeatherData(
     val observation: NwsObservationProperties?,
     val uvForecastHours: List<com.nwsweather.data.model.UvForecastHour>
 )
+
+/**
+ * NWS forecast wind strings are in mph, but station observations are metric.
+ * Convert so the widget does not mix units. Unknown units fall back to the forecast.
+ */
+internal fun observedWindSpeedMph(value: Double?, unitCode: String?): String? {
+    if (value == null || !value.isFinite() || value < 0) return null
+    val mph = when {
+        unitCode == null -> return null
+        unitCode.contains("km_h", ignoreCase = true) -> value * 0.621371
+        unitCode.contains("m_s", ignoreCase = true) -> value * 2.236936
+        unitCode.contains("mi_h", ignoreCase = true) -> value
+        else -> return null
+    }
+    return "${mph.roundToInt()} mph"
+}
 
 private fun formatReadingTimestampLabel(
     prefix: String,

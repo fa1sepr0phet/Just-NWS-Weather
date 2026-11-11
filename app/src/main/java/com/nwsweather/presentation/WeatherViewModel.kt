@@ -32,7 +32,6 @@ class WeatherViewModel(
     val uiState: StateFlow<WeatherUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
-    private var refreshJob: Job? = null
     private var loadJob: Job? = null
 
     init {
@@ -40,32 +39,37 @@ class WeatherViewModel(
         observeSettings()
         checkRatingPrompt()
         refreshStatusBarTemp()
-        startPeriodicRefresh()
+        restoreLastLocation()
     }
 
-    private fun startPeriodicRefresh() {
-        refreshJob?.cancel()
-        refreshJob = viewModelScope.launch {
-            // Check staleness and restore state immediately on start
-            val snapshot = repository.getLatestSnapshot()
-            val tenMinutesAgo = System.currentTimeMillis() - (10 * 60 * 1000)
-            
-            if (snapshot != null && loadJob?.isActive != true) {
-                if (snapshot.updatedAtEpochMs < tenMinutesAgo || _uiState.value.forecastResult == null) {
-                    launchLoad {
-                        repository.loadForecastForCoordinates(
-                            latitude = snapshot.latitude,
-                            longitude = snapshot.longitude,
-                            source = com.nwsweather.data.repository.ForecastSource.Coordinates
-                        )
-                    }
-                }
+    /** Show the last viewed place again after the app process was restarted. */
+    private fun restoreLastLocation() {
+        viewModelScope.launch {
+            val snapshot = repository.getLatestSnapshot() ?: return@launch
+            if (loadJob?.isActive == true || _uiState.value.forecastResult != null) return@launch
+            launchLoad {
+                repository.loadForecastForCoordinates(
+                    latitude = snapshot.latitude,
+                    longitude = snapshot.longitude,
+                    source = com.nwsweather.data.repository.ForecastSource.Coordinates,
+                    locationName = snapshot.locationName
+                )
             }
+        }
+    }
 
-            while (true) {
-                delay(WeatherFreshness.FOREGROUND_REFRESH_MS)
-                refreshForecast()
-            }
+    /**
+     * Runs only while the screen is visible (see WeatherRoute). Refreshes straight
+     * away if the forecast is old, then every few minutes until cancelled.
+     */
+    suspend fun refreshWhileVisible() {
+        val fetchedAt = _uiState.value.forecastResult?.fetchedAtEpochMs
+        if (fetchedAt != null && System.currentTimeMillis() - fetchedAt >= WeatherFreshness.FOREGROUND_REFRESH_MS) {
+            refreshForecast()
+        }
+        while (true) {
+            delay(WeatherFreshness.FOREGROUND_REFRESH_MS)
+            refreshForecast()
         }
     }
 
@@ -227,7 +231,8 @@ class WeatherViewModel(
             repository.loadForecastForCoordinates(
                 latitude = forecastResult.latitude,
                 longitude = forecastResult.longitude,
-                source = forecastResult.source
+                source = forecastResult.source,
+                locationName = forecastResult.locationName
             )
         }
     }

@@ -1,8 +1,12 @@
 package com.nwsweather.ui.screens
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.nwsweather.presentation.WeatherViewModel
 
 @Composable
@@ -11,6 +15,14 @@ fun WeatherRoute(
     onRequestCurrentLocation: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Auto-refresh only while the screen is on show, not while the app is in the background.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.refreshWhileVisible()
+        }
+    }
 
     WeatherScreen(
         uiState = uiState,

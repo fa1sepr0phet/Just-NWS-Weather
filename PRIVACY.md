@@ -81,7 +81,6 @@ The app stores data locally in Room and SharedPreferences, including:
 - point cache: NWS grid and forecast metadata for previously used coordinates
 - latest weather snapshot: location name, latitude, longitude, current conditions, daily forecast periods, forecast timezone, and update timestamps
 - settings: theme, temperature unit, notification toggles, tutorial/help state, rating prompt state, and last notified alert ID
-- a recent movement timestamp used by the movement tracker
 
 This data is stored in normal app-private Android storage. Graph widget images are cached in the app-private cache directory, keyed by location and unit, and include a download time on the widget. Cached graphs older than 24 hours are not displayed when the widget updates; Android may remove cache files at any time.
 
@@ -105,7 +104,6 @@ The app does not currently add its own encryption layer on top of Android's app 
 
 - Saved locations stay on the device until you delete them or use the app's `Clear App Data` action.
 - Cached point data and the latest weather snapshot stay on the device until replaced or cleared.
-- The movement timestamp is deleted once the app decides the device has been stationary long enough.
 - The app does not run a developer-controlled remote database for this data.
 
 ## Android backup and restore

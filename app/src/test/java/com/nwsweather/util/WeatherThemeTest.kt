@@ -27,11 +27,14 @@ class WeatherThemeTest {
         WeatherMood.entries.forEach { mood ->
             listOf(AppTheme.LIGHT to light, AppTheme.DARK to dark, AppTheme.MIDNIGHT to midnight).forEach { (theme, colors) ->
                 val visuals = visualsForMood(mood, theme, colors)
-                assertEquals(colors.surface, visuals.cardColor)
+                // Weather changes the background, never the card's own colour.
+                assertEquals(colors.surface, visuals.cardColor.copy(alpha = 1f))
                 assertEquals(colors.onSurface, visuals.onCardTextColor)
-                val luminances = listOf(visuals.cardColor.luminance(), visuals.onCardTextColor.luminance())
+                val luminances = listOf(colors.surface.luminance(), visuals.onCardTextColor.luminance())
                 assertTrue((luminances.max() + 0.05f) / (luminances.min() + 0.05f) >= 4.5f)
-                assertEquals(1f, visuals.cardColor.alpha, 0f)
+                // Cards let the animation show through, except on Midnight, which has none.
+                val expectedAlpha = if (theme == AppTheme.MIDNIGHT) 1f else WEATHER_CARD_ALPHA
+                assertEquals(expectedAlpha, visuals.cardColor.alpha, 0.01f)
             }
             assertNotEquals(visualsForMood(mood, AppTheme.LIGHT, light).background,
                 visualsForMood(mood, AppTheme.DARK, dark).background)
@@ -40,7 +43,7 @@ class WeatherThemeTest {
     @Test fun systemPaletteColorsReachWeatherCards() {
         val dynamic = lightColorScheme(surface = Color(0xFFF0EDF6), onSurface = Color(0xFF201A28))
         val visuals = visualsForMood(WeatherMood.SUNNY, resolveAppTheme(AppTheme.SYSTEM, false), dynamic)
-        assertEquals(dynamic.surface, visuals.cardColor)
+        assertEquals(dynamic.surface, visuals.cardColor.copy(alpha = 1f))
         assertEquals(dynamic.onSurface, visuals.onCardTextColor)
     }
 }
