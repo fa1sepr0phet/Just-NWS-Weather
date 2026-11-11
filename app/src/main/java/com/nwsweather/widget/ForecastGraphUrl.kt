@@ -9,7 +9,7 @@ fun forecastGraphPage(latitude: Double, longitude: Double, unit: TemperatureUnit
         .addQueryParameter("w0", "t").addQueryParameter("w4", "sky")
         .addQueryParameter("w5", "pop").addQueryParameter("w25", "psnw4")
         .addQueryParameter("pqpfhr", "6").addQueryParameter("psnwhr", "6")
-        .addQueryParameter("AheadHour", "59").addQueryParameter("FcstType", "graphical")
+        .addQueryParameter("AheadHour", "0").addQueryParameter("FcstType", "graphical")
         .addQueryParameter("textField1", latitude.toString()).addQueryParameter("textField2", longitude.toString())
         .addQueryParameter("site", "all").addQueryParameter("dd", "1").addQueryParameter("menu", "1")
         .addQueryParameter("unit", if (unit == TemperatureUnit.CELSIUS) "1" else "0")

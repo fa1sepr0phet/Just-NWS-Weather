@@ -9,7 +9,7 @@ import org.junit.Test
 class ForecastGraphUrlTest {
     private val page = forecastGraphPage(38.983, -94.585, TemperatureUnit.FAHRENHEIT)
     @Test fun preservesRequestedGraphSettings() {
-        assertEquals("59", page.queryParameter("AheadHour"))
+        assertEquals("0", page.queryParameter("AheadHour"))
         assertEquals("t", page.queryParameter("w0"))
         assertEquals("sky", page.queryParameter("w4"))
         assertEquals("pop", page.queryParameter("w5"))

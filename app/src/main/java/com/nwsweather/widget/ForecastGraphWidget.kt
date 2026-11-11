@@ -114,7 +114,7 @@ class ForecastGraphWorker(context: Context, params: WorkerParameters) : Coroutin
         }) else null
         val views = graphViews(context).apply {
             setTextViewText(R.id.graph_title, "${snapshot.locationName} \u00B7 NWS graph")
-            setTextViewText(R.id.graph_window, "48-hour forecast starting +59h \u00B7 Tap graph to enlarge")
+            setTextViewText(R.id.graph_window, "Next 48 hours \u00B7 Tap graph to enlarge")
             val open = Intent(Intent.ACTION_VIEW, page.toString().toUri())
             setOnClickPendingIntent(R.id.graph_image, PendingIntent.getActivity(context, 203, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             setViewVisibility(R.id.graph_image, if (bitmap != null) View.VISIBLE else View.GONE)

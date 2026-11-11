@@ -25,8 +25,8 @@ android {
         applicationId = "com.nwsweather.myapp"
         minSdk = 27
         targetSdk = 36
-        versionCode = 111
-        versionName = "12.11"
+        versionCode = 112
+        versionName = "12.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
