@@ -1,19 +1,18 @@
 package com.nwsweather.worker
 
 import android.content.Context
-import androidx.glance.appwidget.updateAll
 import androidx.work.Constraints
+import androidx.work.BackoffPolicy
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.Operation
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.nwsweather.di.AppContainer
 import com.nwsweather.util.NotificationHelper
-import com.nwsweather.widget.WeatherAppWidget
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,22 +29,18 @@ class WidgetRefreshWorker(
             val repository = container.weatherRepository
             val settings = container.settingsManager
             
-            var result = repository.refreshLatestSnapshot()
-            
-            // If no snapshot exists (e.g. after destructive migration), try to recover using the first saved location
-            if (result == null) {
-                val locations = repository.getSavedLocations()
-                if (locations.isNotEmpty()) {
-                    result = repository.loadForecastForSavedLocation(locations.first())
-                }
-            }
-            WeatherAppWidget().updateAll(applicationContext)
+            val result = repository.refreshLatestSnapshot()
 
             val helper = NotificationHelper(applicationContext)
             helper.createNotificationChannel()
 
-            if (settings.notificationsEnabled.value && result != null && result.alerts.isNotEmpty()) {
-                val alert = result.alerts.first()
+            // Fetch alerts only after publishing the temperature. A failed alert
+            // request still retries, but cannot hold the status icon hostage.
+            val alerts = if (settings.notificationsEnabled.value && result != null) {
+                repository.fetchAlerts(result.latitude, result.longitude)
+            } else emptyList()
+            if (result != null && alerts.isNotEmpty()) {
+                val alert = alerts.first()
                 val lastAlertId = settings.getLastNotifiedAlertId()
                 
                 // Only show a notification if this is a NEW alert we haven't notified for yet
@@ -74,8 +69,9 @@ class WidgetRefreshWorker(
         private const val PERIODIC_WORK_NAME = "weather_widget_periodic_refresh"
         private const val IMMEDIATE_WORK_NAME = "weather_widget_immediate_refresh"
 
-        fun schedulePeriodic(context: Context) {
+        fun schedulePeriodic(context: Context): Operation {
             val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(15, TimeUnit.MINUTES)
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 1, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -83,15 +79,16 @@ class WidgetRefreshWorker(
                 )
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            return WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 PERIODIC_WORK_NAME,
                 ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }
 
-        fun enqueueImmediate(context: Context) {
+        fun enqueueImmediate(context: Context): Operation {
             val request = OneTimeWorkRequestBuilder<WidgetRefreshWorker>()
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 1, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -99,7 +96,7 @@ class WidgetRefreshWorker(
                 )
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
+            return WorkManager.getInstance(context).enqueueUniqueWork(
                 IMMEDIATE_WORK_NAME,
                 ExistingWorkPolicy.KEEP,
                 request

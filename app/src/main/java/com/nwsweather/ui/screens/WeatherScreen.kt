@@ -1,7 +1,7 @@
 package com.nwsweather.ui.screens
 
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import android.util.Base64
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,8 +21,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Radar
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -60,16 +58,24 @@ import com.nwsweather.data.local.SavedLocationEntity
 import com.nwsweather.presentation.AppTheme
 import com.nwsweather.presentation.TemperatureUnit
 import com.nwsweather.presentation.WeatherUiState
+import com.nwsweather.util.groupForecastPeriods
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.nwsweather.ui.components.ForecastCard
 import com.nwsweather.ui.components.LocationSearchCard
 import com.nwsweather.ui.components.SavedLocationChips
 import com.nwsweather.ui.components.WeatherAtmosphereAnimation
 import com.nwsweather.ui.components.WeatherHeroCard
-import com.nwsweather.ui.theme.WeatherVisuals
+import com.nwsweather.ui.theme.resolveAppTheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.alpha
 import com.nwsweather.ui.theme.mapWeatherMood
 import com.nwsweather.ui.theme.visualsForMood
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.Warning
@@ -123,7 +129,44 @@ fun WeatherScreen(
     )
     val context = LocalContext.current
 
+    var uvNowEpochMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            uvNowEpochMs = System.currentTimeMillis()
+            kotlinx.coroutines.delay(60_000L)
+        }
+    }
+
     val forecastResult = uiState.forecastResult
+    // Keep the details attached to the exact forecast that supplied the alerts.
+    var showAlertDetails by remember(forecastResult) { mutableStateOf(false) }
+    if (showAlertDetails && forecastResult != null && forecastResult.alerts.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showAlertDetails = false },
+            title = { Text("Weather alerts — ${forecastResult.locationName}") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (uiState.refreshFailed) {
+                        Text("Refresh failed. These alerts may be outdated.")
+                    }
+                    forecastResult.alerts.forEach { alert ->
+                        Text(alert.event ?: "Weather alert", fontWeight = FontWeight.Bold)
+                        alert.headline?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                        Text("Affected area: ${alert.areaDesc?.takeIf { it.isNotBlank() } ?: "Not supplied by NWS"}")
+                        Text(alert.description?.takeIf { it.isNotBlank() } ?: "No description supplied by NWS.")
+                        alert.instruction?.takeIf { it.isNotBlank() }?.let { Text(it) }
+                        HorizontalDivider()
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAlertDetails = false }) { Text("Close") }
+            }
+        )
+    }
     val current = forecastResult?.currentPeriod
 
     val mood = mapWeatherMood(
@@ -133,7 +176,7 @@ fun WeatherScreen(
 
     val openNwsWebsite = { lat: Double, lon: Double ->
         val url = "https://forecast.weather.gov/MapClick.php?lat=$lat&lon=$lon"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
         context.startActivity(intent)
     }
 
@@ -141,32 +184,24 @@ fun WeatherScreen(
         val json = """{"agenda":{"id":"national","center":[$lon,$lat],"location":[$lon,$lat],"zoom":7,"layer":"bref_qcd"},"animating":true,"base":"standard","artcc":false,"county":false,"cwa":false,"rfc":false,"state":false,"menu":false,"shortFusedOnly":false,"opacity":{"alerts":0.8,"local":0.6,"localStations":0.8,"national":0.6}}"""
         val encoded = Base64.encodeToString(json.toByteArray(), Base64.NO_WRAP or Base64.URL_SAFE)
         val url = "https://radar.weather.gov/?settings=v1_$encoded"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
         context.startActivity(intent)
     }
 
     val openPlayStore = {
         val packageName = context.packageName
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")).apply {
+        val intent = Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri()).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try {
             context.startActivity(intent)
-        } catch (e: Exception) {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")))
+        } catch (_: Exception) {
+            context.startActivity(Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=$packageName".toUri()))
         }
     }
 
-    val visuals = if (uiState.theme == AppTheme.MIDNIGHT) {
-        WeatherVisuals(
-            background = Brush.verticalGradient(listOf(Color.Black, Color.Black)),
-            cardColor = Color(0xFF121212),
-            onCardTextColor = Color.White,
-            appBarContentColor = Color.White
-        )
-    } else {
-        visualsForMood(mood)
-    }
+    val resolvedTheme = resolveAppTheme(uiState.theme, isSystemInDarkTheme())
+    val visuals = visualsForMood(mood, resolvedTheme, MaterialTheme.colorScheme)
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage ?: return@LaunchedEffect
@@ -174,12 +209,47 @@ fun WeatherScreen(
         onDismissError()
     }
 
+    if (showThemeMenu) {
+        AlertDialog(
+            onDismissRequest = { showThemeMenu = false },
+            title = { Text("Theme") },
+            text = {
+                Column(Modifier.selectableGroup()) {
+                    listOf(
+                        AppTheme.SYSTEM to "System",
+                        AppTheme.LIGHT to "Light",
+                        AppTheme.DARK to "Dark",
+                        AppTheme.MIDNIGHT to "Midnight"
+                    ).forEach { (theme, label) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).selectable(
+                                selected = uiState.theme == theme,
+                                role = Role.RadioButton,
+                                onClick = {
+                                    onThemeChanged(theme)
+                                    showThemeMenu = false
+                                }
+                            ),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = uiState.theme == theme, onClick = null)
+                            Text(label, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeMenu = false }) { Text("Close") }
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(visuals.background)
     ) {
-        if (uiState.theme != AppTheme.MIDNIGHT) {
+        if (resolvedTheme == AppTheme.LIGHT) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
@@ -194,7 +264,11 @@ fun WeatherScreen(
             )
         }
 
-        WeatherAtmosphereAnimation(mood = mood)
+        if (resolvedTheme != AppTheme.MIDNIGHT) {
+            Box(Modifier.fillMaxSize().alpha(if (resolvedTheme == AppTheme.DARK) 0.25f else 1f)) {
+                WeatherAtmosphereAnimation(mood = mood)
+            }
+        }
 
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -202,10 +276,10 @@ fun WeatherScreen(
             topBar = {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                        titleContentColor = visuals.appBarContentColor,
-                        actionIconContentColor = visuals.appBarContentColor
+                        containerColor = visuals.cardColor,
+                        scrolledContainerColor = visuals.cardColor,
+                        titleContentColor = visuals.onCardTextColor,
+                        actionIconContentColor = visuals.onCardTextColor
                     ),
                     title = {
                         Text(
@@ -217,28 +291,14 @@ fun WeatherScreen(
                     },
                     actions = {
                         IconButton(
-                            onClick = { 
+                            onClick = {
                                 onOpenSearch()
-                                showSearchMenu = true 
+                                showSearchMenu = true
                             }
                         ) {
                             Icon(
                                 Icons.Default.Menu,
-                                contentDescription = "Search menu"
-                            )
-                        }
-
-                        IconButton(
-                            onClick = {
-                                uiState.forecastResult?.let { result ->
-                                    openRadar(result.latitude, result.longitude)
-                                }
-                            },
-                            enabled = uiState.forecastResult != null && !uiState.isLoading
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Radar,
-                                contentDescription = "Weather Radar"
+                                contentDescription = "Locations and settings menu"
                             )
                         }
 
@@ -246,17 +306,138 @@ fun WeatherScreen(
                             ModalBottomSheet(
                                 onDismissRequest = { showSearchMenu = false },
                                 sheetState = sheetState,
-                                containerColor = visuals.cardColor.copy(alpha = 0.95f),
+                                containerColor = visuals.cardColor,
                                 contentColor = visuals.onCardTextColor
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .padding(16.dp)
-                                        .padding(bottom = 32.dp),
+                                        .padding(bottom = 32.dp)
+                                        .verticalScroll(rememberScrollState()),
                                     verticalArrangement = Arrangement.spacedBy(24.dp)
                                 ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box {
+                                            TextButton(onClick = { showSettingsMenu = true }) {
+                                                Text("Settings", color = visuals.onCardTextColor)
+                                            }
+                                            DropdownMenu(
+                                                expanded = showSettingsMenu,
+                                                onDismissRequest = { showSettingsMenu = false }
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text("Temperature Unit")
+                                                            Text(
+                                                                text = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT) "\u00B0F" else "\u00B0C",
+                                                                style = MaterialTheme.typography.labelLarge,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        }
+                                                    },
+                                                    leadingIcon = { Icon(Icons.Outlined.Thermostat, null) },
+                                                    onClick = {
+                                                        val nextUnit = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT)
+                                                            TemperatureUnit.CELSIUS else TemperatureUnit.FAHRENHEIT
+                                                        onTemperatureUnitChanged(nextUnit)
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text("Weather Alerts")
+                                                            Switch(
+                                                                checked = uiState.notificationsEnabled,
+                                                                onCheckedChange = onNotificationsToggleChanged,
+                                                                modifier = Modifier.scale(0.8f)
+                                                            )
+                                                        }
+                                                    },
+                                                    leadingIcon = { Icon(Icons.Outlined.Warning, null) },
+                                                    onClick = { onNotificationsToggleChanged(!uiState.notificationsEnabled) }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text("Status Bar Temp")
+                                                            Switch(
+                                                                checked = uiState.statusBarTempEnabled,
+                                                                onCheckedChange = onStatusBarTempToggleChanged,
+                                                                modifier = Modifier.scale(0.8f)
+                                                            )
+                                                        }
+                                                    },
+                                                    leadingIcon = { Icon(Icons.Outlined.Thermostat, null) },
+                                                    onClick = { onStatusBarTempToggleChanged(!uiState.statusBarTempEnabled) }
+                                                )
+                                                HorizontalDivider()
+                                                DropdownMenuItem(
+                                                    text = { Text("Rate Just NWS Weather") },
+                                                    leadingIcon = { Icon(Icons.Outlined.Star, null) },
+                                                    onClick = {
+                                                        openPlayStore()
+                                                        showSettingsMenu = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Send Feedback") },
+                                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
+                                                    onClick = {
+                                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                                            data = "mailto:falsepr0phet@protonmail.com".toUri()
+                                                            putExtra(Intent.EXTRA_SUBJECT, "Just NWS Weather Feedback")
+                                                        }
+                                                        context.startActivity(intent)
+                                                        showSettingsMenu = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("App Tutorial") },
+                                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
+                                                    onClick = {
+                                                        onShowTutorial()
+                                                        showSettingsMenu = false
+                                                    }
+                                                )
+                                                HorizontalDivider()
+                                                DropdownMenuItem(
+                                                    text = { Text("Clear App Data", color = MaterialTheme.colorScheme.error) },
+                                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                                    onClick = {
+                                                        showClearDataConfirm = true
+                                                        showSettingsMenu = false
+                                                    }
+                                                )
+                                            }
+                                        }
+
+                                        Box {
+                                            TextButton(onClick = { showThemeMenu = true }) {
+                                                Text("Theme", color = visuals.onCardTextColor)
+                                            }
+                                        }
+
+
+                                        TextButton(
+                                            enabled = forecastResult != null,
+                                            onClick = { forecastResult?.let { openRadar(it.latitude, it.longitude) } }
+                                        ) { Text("Weather radar", color = visuals.onCardTextColor) }
+                                    }
                                     val isEditing = uiState.editingLocation != null
-                                    
+
                                     LocationSearchCard(
                                         searchQuery = uiState.searchQuery,
                                         citySuggestions = uiState.citySuggestions,
@@ -284,7 +465,7 @@ fun WeatherScreen(
                                     )
 
                                     if (isEditing) {
-                                        androidx.compose.material3.TextButton(
+                                        TextButton(
                                             onClick = onStopEditing,
                                             modifier = Modifier.align(Alignment.CenterHorizontally)
                                         ) {
@@ -355,158 +536,6 @@ fun WeatherScreen(
                         }
 
                         IconButton(
-                            onClick = { showSettingsMenu = true }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings"
-                            )
-                            DropdownMenu(
-                                expanded = showSettingsMenu,
-                                onDismissRequest = { showSettingsMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { 
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text("Temperature Unit")
-                                            Text(
-                                                text = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT) "\u00B0F" else "\u00B0C",
-                                                style = MaterialTheme.typography.labelLarge,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                    },
-                                    leadingIcon = { Icon(Icons.Outlined.Thermostat, null) },
-                                    onClick = {
-                                        val nextUnit = if (uiState.temperatureUnit == TemperatureUnit.FAHRENHEIT) 
-                                            TemperatureUnit.CELSIUS else TemperatureUnit.FAHRENHEIT
-                                        onTemperatureUnitChanged(nextUnit)
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { 
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text("Weather Alerts")
-                                            Switch(
-                                                checked = uiState.notificationsEnabled,
-                                                onCheckedChange = onNotificationsToggleChanged,
-                                                modifier = Modifier.scale(0.8f)
-                                            )
-                                        }
-                                    },
-                                    leadingIcon = { Icon(Icons.Outlined.Warning, null) },
-                                    onClick = { onNotificationsToggleChanged(!uiState.notificationsEnabled) }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text("Status Bar Temp")
-                                            Switch(
-                                                checked = uiState.statusBarTempEnabled,
-                                                onCheckedChange = onStatusBarTempToggleChanged,
-                                                modifier = Modifier.scale(0.8f)
-                                            )
-                                        }
-                                    },
-                                    leadingIcon = { Icon(Icons.Outlined.Thermostat, null) },
-                                    onClick = { onStatusBarTempToggleChanged(!uiState.statusBarTempEnabled) }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("Rate Just NWS Weather") },
-                                    leadingIcon = { Icon(Icons.Outlined.Star, null) },
-                                    onClick = {
-                                        openPlayStore()
-                                        showSettingsMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Send Feedback") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
-                                    onClick = {
-                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                            data = Uri.parse("mailto:falsepr0phet@protonmail.com")
-                                            putExtra(Intent.EXTRA_SUBJECT, "Just NWS Weather Feedback")
-                                        }
-                                        context.startActivity(intent)
-                                        showSettingsMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("App Tutorial") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) },
-                                    onClick = {
-                                        onShowTutorial()
-                                        showSettingsMenu = false
-                                    }
-                                )
-                                HorizontalDivider()
-                                DropdownMenuItem(
-                                    text = { Text("Clear App Data", color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                                    onClick = {
-                                        showClearDataConfirm = true
-                                        showSettingsMenu = false
-                                    }
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { showThemeMenu = true }
-                        ) {
-                            Icon(
-                                Icons.Outlined.Palette,
-                                contentDescription = "Change theme"
-                            )
-                            DropdownMenu(
-                                expanded = showThemeMenu,
-                                onDismissRequest = { showThemeMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("System") },
-                                    onClick = {
-                                        onThemeChanged(AppTheme.SYSTEM)
-                                        showThemeMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Light") },
-                                    onClick = {
-                                        onThemeChanged(AppTheme.LIGHT)
-                                        showThemeMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Dark") },
-                                    onClick = {
-                                        onThemeChanged(AppTheme.DARK)
-                                        showThemeMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Midnight") },
-                                    onClick = {
-                                        onThemeChanged(AppTheme.MIDNIGHT)
-                                        showThemeMenu = false
-                                    }
-                                )
-                            }
-                        }
-
-                        IconButton(
                             onClick = onRefresh,
                             enabled = uiState.forecastResult != null && !uiState.isLoading
                         ) {
@@ -556,7 +585,7 @@ fun WeatherScreen(
                     }
                 )
             }
-            
+
             PullToRefreshBox(
                 isRefreshing = uiState.isLoading,
                 onRefresh = onRefresh,
@@ -581,11 +610,7 @@ fun WeatherScreen(
                     if (uiState.forecastResult?.alerts?.isNotEmpty() == true) {
                         item {
                             ElevatedCard(
-                                onClick = {
-                                    uiState.forecastResult.let { result ->
-                                        openNwsWebsite(result.latitude, result.longitude)
-                                    }
-                                },
+                                onClick = { showAlertDetails = true },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.elevatedCardColors(
                                     containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
@@ -603,11 +628,18 @@ fun WeatherScreen(
                                         modifier = Modifier.size(24.dp),
                                         tint = MaterialTheme.colorScheme.error
                                     )
-                                    Text(
-                                        text = "Hazardous weather conditions reported",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            text = uiState.forecastResult.alerts
+                                                .map { it.event ?: "Weather alert" }.distinct().joinToString(),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "${uiState.forecastResult.locationName} • Tap for affected areas and details",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -621,7 +653,7 @@ fun WeatherScreen(
                                 color = visuals.appBarContentColor
                             )
                         }
-                        
+
                         if (uiState.showFavoritesHelp) {
                             item {
                                 ElevatedCard(
@@ -673,15 +705,16 @@ fun WeatherScreen(
                             item {
                                 WeatherHeroCard(
                                     period = currentPeriod,
+                                    uvForecast = result.uvForecastHours.firstOrNull { it.covers(uvNowEpochMs) },
+                                    uvTimeZoneId = result.timeZoneId,
                                     hourlyPeriod = result.currentHourlyPeriod,
-                                    locationName = result.locationName,
                                     displayTemperature = result.currentTemperatureValue,
                                     displayTemperatureUnit = result.currentTemperatureUnit,
                                     forecastText = result.currentShortForecast,
                                     readingTimestampLabel = result.currentReadingTimestampLabel,
                                     isDaytime = result.isDaytime,
                                     temperatureUnit = uiState.temperatureUnit,
-                                    cardColor = visuals.cardColor.copy(alpha = 0.6f),
+                                    cardColor = visuals.cardColor,
                                     textColor = visuals.onCardTextColor,
                                     onClick = { openNwsWebsite(result.latitude, result.longitude) }
                                 )
@@ -699,17 +732,14 @@ fun WeatherScreen(
                                     color = visuals.appBarContentColor
                                 )
                             }
-                            
-                            val groupedPeriods = result.upcomingPeriods
-                                .groupBy { it.name.removeSuffix(" Night") }
-                                .values
-                                .toList()
+
+                            val groupedPeriods = groupForecastPeriods(result.upcomingPeriods)
 
                             items(groupedPeriods) { periods ->
                                 ForecastCard(
                                     periods = periods,
                                     temperatureUnit = uiState.temperatureUnit,
-                                    cardColor = visuals.cardColor.copy(alpha = 0.4f),
+                                    cardColor = visuals.cardColor,
                                     textColor = visuals.onCardTextColor,
                                     onClick = { openNwsWebsite(result.latitude, result.longitude) }
                                 )
@@ -799,13 +829,13 @@ fun TutorialOverlay(onDismiss: () -> Unit) {
                         color = Color.White,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
-                    
+
                     Text(
                         text = if (step < steps.size - 1) "Tap to continue" else "Got it!",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    
+
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -814,7 +844,7 @@ fun TutorialOverlay(onDismiss: () -> Unit) {
                                 modifier = Modifier
                                     .size(8.dp)
                                     .background(
-                                        color = if (index == step) MaterialTheme.colorScheme.primary 
+                                        color = if (index == step) MaterialTheme.colorScheme.primary
                                                 else Color.White.copy(alpha = 0.3f),
                                         shape = androidx.compose.foundation.shape.CircleShape
                                     )

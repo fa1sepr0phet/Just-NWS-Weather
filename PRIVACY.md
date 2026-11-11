@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: June 29, 2026**
+**Last updated: November 11, 2026**
 
 ## Purpose
 
@@ -14,7 +14,7 @@ This document is meant to describe what the app actually does today, including w
 - No analytics or tracking SDKs
 - No user accounts
 - No developer-run backend for user profiles or monetization
-- Weather data comes from the U.S. National Weather Service
+- Weather data comes from the U.S. National Weather Service; UV forecasts are retrieved from the U.S. EPA
 - Some location-related data is stored locally on your device
 - Some features rely on Android system services or platform providers
 - Android backup and restore may copy local app data, depending on OS settings
@@ -55,8 +55,10 @@ Some of this information may be personal or sensitive depending on how you use t
 The app currently makes network or system-service requests for:
 
 - weather forecasts, point metadata, and alerts from `https://api.weather.gov/`
+- hourly UV forecasts from `https://data.epa.gov/dmapservice/`, using the city and state supplied by NWS point metadata (not saved labels, street addresses, or coordinates)
+- NWS graphical forecast pages and images from `https://forecast.weather.gov/` when the graph widget is installed, using the selected location coordinates and temperature unit
 - address geocoding through Android's `Geocoder` when you run a full address search
-- external browser or app links only when you tap them, such as NWS forecast pages, radar, email, or the Play Store
+- external browser or app links when you tap them, such as NWS forecast pages, radar, email, or the Play Store
 
 The app does not add advertising IDs, analytics IDs, or account tokens to these requests.
 
@@ -77,11 +79,11 @@ The app stores data locally in Room and SharedPreferences, including:
 
 - saved locations: label, address, city/state, latitude, longitude, and display order
 - point cache: NWS grid and forecast metadata for previously used coordinates
-- latest weather snapshot: location name, latitude, longitude, current forecast details, and update timestamp
+- latest weather snapshot: location name, latitude, longitude, current conditions, daily forecast periods, forecast timezone, and update timestamps
 - settings: theme, temperature unit, notification toggles, tutorial/help state, rating prompt state, and last notified alert ID
 - a recent movement timestamp used by the movement tracker
 
-This data is stored in normal app-private Android storage.
+This data is stored in normal app-private Android storage. Graph widget images are cached in the app-private cache directory, keyed by location and unit, and include a download time on the widget. Cached graphs older than 24 hours are not displayed when the widget updates; Android may remove cache files at any time.
 
 The app does not currently add its own encryption layer on top of Android's app sandbox.
 
@@ -125,7 +127,8 @@ This behavior is controlled by the Android platform, not by a server operated by
 
 The app's own code does not include third-party data collection SDKs, but the following external or platform services may still be involved:
 
-- National Weather Service (`api.weather.gov`)
+- National Weather Service (`api.weather.gov`, `forecast.weather.gov`)
+- U.S. Environmental Protection Agency UV forecast service (`data.epa.gov`)
 - Android `Geocoder` backend
 - Google Play Services location APIs in the Play build
 

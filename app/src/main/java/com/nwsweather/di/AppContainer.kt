@@ -15,6 +15,7 @@ class AppContainer(context: Context) {
 
     val weatherRepository: WeatherRepository = WeatherRepository(
         nwsApi = ApiModule.nwsApi,
+        epaUvRepository = com.nwsweather.data.repository.EpaUvRepository(ApiModule.epaUvApi),
         savedLocationDao = database.savedLocationDao(),
         pointCacheDao = database.pointCacheDao(),
         weatherSnapshotDao = database.weatherSnapshotDao(),

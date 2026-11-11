@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.outlined.WbSunny
-import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -33,7 +32,7 @@ fun ForecastCard(
     onClick: () -> Unit = {}
 ) {
     val dayPeriod = periods.firstOrNull { it.isDaytime } ?: periods.firstOrNull()
-    val nightPeriod = periods.firstOrNull { !it.isDaytime } ?: periods.lastOrNull()
+    val nightPeriod = periods.firstOrNull { !it.isDaytime }
     
     if (dayPeriod == null) return
 
@@ -61,7 +60,8 @@ fun ForecastCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = dayPeriod.name.removeSuffix(" Night"),
+                    text = dayPeriod.name,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp),
                     style = MaterialTheme.typography.titleMedium,
                     color = textColor
                 )
@@ -75,10 +75,10 @@ fun ForecastCard(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.WbSunny,
-                            contentDescription = null,
+                            imageVector = if (dayPeriod.isDaytime) Icons.Outlined.WbSunny else Icons.Default.NightlightRound,
+                            contentDescription = if (dayPeriod.isDaytime) "High" else "Low",
                             modifier = Modifier.size(16.dp),
-                            tint = textColor.copy(alpha = 0.7f)
+                            tint = textColor
                         )
                         Text(
                             text = formatTemperature(
@@ -97,7 +97,7 @@ fun ForecastCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.NightlightRound,
-                                contentDescription = null,
+                                contentDescription = "Low",
                                 modifier = Modifier.size(16.dp),
                                 tint = textColor.copy(alpha = 0.5f)
                             )
@@ -108,7 +108,7 @@ fun ForecastCard(
                                     targetUnit = temperatureUnit
                                 ),
                                 style = MaterialTheme.typography.titleMedium,
-                                color = textColor.copy(alpha = 0.6f)
+                                color = textColor
                             )
                         }
                     }
@@ -133,13 +133,28 @@ fun ForecastCard(
                 )
             }
 
+            forecastDetails(dayPeriod).takeIf { it.isNotBlank() }?.let { details ->
+                Text(
+                    text = details,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor
+                )
+            }
+
             if (nightPeriod != null && nightPeriod != dayPeriod) {
                 Text(
-                    text = "Evening: ${nightPeriod.shortForecast ?: ""}",
+                    text = "Night: ${nightPeriod.shortForecast ?: ""}\n${forecastDetails(nightPeriod)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = textColor.copy(alpha = 0.7f)
+                    color = textColor
                 )
             }
         }
     }
 }
+
+private fun forecastDetails(period: NwsForecastPeriod): String = listOfNotNull(
+    period.probabilityOfPrecipitation?.value?.toInt()?.let { "Precip $it%" },
+    period.windSpeed?.takeIf { it.isNotBlank() }?.let {
+        "Wind $it ${period.windDirection.orEmpty()}".trim()
+    }
+).joinToString(" \u00B7 ")

@@ -8,6 +8,23 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import okhttp3.MediaType.Companion.toMediaType
 
 object ApiModule {
+    // EPA is used only for UV; keep its client and headers separate from NWS.
+    val epaUvApi: EpaUvApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://data.epa.gov/dmapservice/")
+            .client(OkHttpClient.Builder()
+                .callTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    chain.proceed(chain.request().newBuilder()
+                        .header("Accept", "application/json")
+                        .header("User-Agent", "(Just NWS Weather, falsepr0phet@protonmail.com)")
+                        .build())
+                }.build())
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+            .create(EpaUvApi::class.java)
+    }
+
     private val json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false

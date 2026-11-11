@@ -11,6 +11,7 @@ import android.net.NetworkCapabilities
 import androidx.core.content.ContextCompat
 import com.nwsweather.di.AppContainer
 import com.nwsweather.worker.WidgetRefreshWorker
+import com.nwsweather.worker.StatusBarRefreshAlarm
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +34,7 @@ class NwsWeatherApp : Application() {
     override fun onCreate() {
         super.onCreate()
         WidgetRefreshWorker.schedulePeriodic(this)
+        StatusBarRefreshAlarm.sync(this, container.settingsManager.statusBarTempEnabled.value)
         // Runtime receivers also work when no home-screen widget is installed.
         ContextCompat.registerReceiver(this, unlockReceiver, IntentFilter(Intent.ACTION_USER_PRESENT), ContextCompat.RECEIVER_NOT_EXPORTED)
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback)

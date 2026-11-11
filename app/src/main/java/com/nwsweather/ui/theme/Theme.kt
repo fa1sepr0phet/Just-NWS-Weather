@@ -76,16 +76,19 @@ private val AppShapes = Shapes(
     large = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
 )
 
+/** Resolve System once using Android's current light/dark setting. */
+fun resolveAppTheme(appTheme: AppTheme, systemDark: Boolean): AppTheme = when (appTheme) {
+    AppTheme.SYSTEM -> if (systemDark) AppTheme.DARK else AppTheme.LIGHT
+    else -> appTheme
+}
+
 @Composable
 fun NwsWeatherTheme(
     appTheme: AppTheme = AppTheme.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val darkTheme = when (appTheme) {
-        AppTheme.SYSTEM -> isSystemInDarkTheme()
-        AppTheme.LIGHT -> false
-        AppTheme.DARK, AppTheme.MIDNIGHT -> true
-    }
+    val resolvedTheme = resolveAppTheme(appTheme, isSystemInDarkTheme())
+    val darkTheme = resolvedTheme != AppTheme.LIGHT
     val context = LocalContext.current
     val colorScheme = when {
         appTheme == AppTheme.MIDNIGHT -> MidnightColors

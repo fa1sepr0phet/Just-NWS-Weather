@@ -45,5 +45,8 @@ data class WeatherSnapshotEntity(
     val windDirection: String,
     val uvIndex: Int? = null,
     val updatedAtEpochMs: Long,
-    val isDaytime: Boolean
+    val isDaytime: Boolean,
+    val forecastPeriodsJson: String? = null,
+    val forecastTimeZone: String? = null,
+    val forecastFetchedAtEpochMs: Long? = null
 )

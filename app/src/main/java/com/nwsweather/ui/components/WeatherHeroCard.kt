@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,8 +20,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Opacity
-import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.ui.text.font.FontWeight
 import com.nwsweather.data.model.NwsForecastPeriod
 import com.nwsweather.presentation.TemperatureUnit
@@ -32,7 +31,8 @@ import com.nwsweather.util.formatTemperature
 fun WeatherHeroCard(
     period: NwsForecastPeriod,
     hourlyPeriod: NwsForecastPeriod? = null,
-    locationName: String,
+    uvForecast: com.nwsweather.data.model.UvForecastHour? = null,
+    uvTimeZoneId: String? = null,
     displayTemperature: Double = (hourlyPeriod?.temperature ?: period.temperature).toDouble(),
     displayTemperatureUnit: String = hourlyPeriod?.temperatureUnit ?: period.temperatureUnit,
     forecastText: String = hourlyPeriod?.shortForecast ?: period.shortForecast ?: period.name,
@@ -57,15 +57,9 @@ fun WeatherHeroCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = locationName,
-                style = MaterialTheme.typography.titleMedium,
-                color = textColor
-            )
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -98,7 +92,7 @@ fun WeatherHeroCard(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = textColor.copy(alpha = 0.72f)
+                            color = textColor
                         )
                     }
                 }
@@ -106,7 +100,7 @@ fun WeatherHeroCard(
 
             period.detailedForecast?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    text = it,
+                    text = "${period.name} forecast: $it",
                     style = MaterialTheme.typography.bodyMedium,
                     color = textColor
                 )
@@ -115,44 +109,50 @@ fun WeatherHeroCard(
             @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Wind
+                // These details describe the forecast period, not the observation.
                 WeatherDetailItem(
                     icon = Icons.Outlined.Air,
-                    label = "Wind",
-                    value = "${period.windSpeed ?: "--"} ${period.windDirection ?: ""}".trim(),
+                    label = if (hourlyPeriod != null) "Hourly wind" else "Wind",
+                    value = "${(hourlyPeriod ?: period).windSpeed ?: "--"} ${(hourlyPeriod ?: period).windDirection ?: ""}".trim(),
                     textColor = textColor
                 )
 
                 // Humidity
-                val humidity = period.relativeHumidity?.value?.toInt()
-                    ?: hourlyPeriod?.relativeHumidity?.value?.toInt()
+                val humidity = (hourlyPeriod ?: period).relativeHumidity?.value?.toInt()
                 WeatherDetailItem(
                     icon = Icons.Outlined.Opacity,
-                    label = "Humidity",
+                    label = if (hourlyPeriod != null) "Hourly humidity" else "Humidity",
                     value = humidity?.let { "$it%" } ?: "--",
                     textColor = textColor
                 )
 
                 // Precipitation
-                val precip = period.probabilityOfPrecipitation?.value?.toInt()
+                val precip = (hourlyPeriod ?: period).probabilityOfPrecipitation?.value?.toInt()
                 if (precip != null) {
                     WeatherDetailItem(
-                        icon = Icons.Outlined.Umbrella,
-                        label = "Rain",
+                        icon = Icons.Outlined.WaterDrop,
+                        label = if (hourlyPeriod != null) "Hourly precip" else "Precip",
                         value = "$precip%",
                         textColor = textColor
                     )
                 }
-
-                // UV Index (Placeholder as NWS standard periods don't include it)
-                WeatherDetailItem(
-                    icon = Icons.Outlined.WbSunny,
-                    label = "UV",
-                    value = "Unavailable",
-                    textColor = textColor
+                if (uvForecast != null && uvTimeZoneId != null) {
+                    WeatherDetailItem(
+                        icon = Icons.Outlined.WbSunny,
+                        label = "UV forecast",
+                        value = uvForecast.value.toString(),
+                        textColor = textColor
+                    )
+                }
+            }
+            if (uvForecast != null && uvTimeZoneId != null) {
+                Text(
+                    text = uvForecast.label(uvTimeZoneId),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textColor
                 )
             }
         }
@@ -174,13 +174,13 @@ private fun WeatherDetailItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
-            tint = textColor.copy(alpha = 0.6f)
+            tint = textColor
         )
         Column {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = textColor.copy(alpha = 0.6f)
+                color = textColor
             )
             Text(
                 text = value,

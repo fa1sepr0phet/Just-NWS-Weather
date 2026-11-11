@@ -12,11 +12,9 @@ Download from Google Play: https://play.google.com/store/apps/details?id=com.nws
 
 ## Screenshots
 
-<p align="center">
-  <img src="images/4681clean.png" width="30%" />
-  <img src="images/kcclean.png" width="30%" />
-  <img src="images/kc2clean.png" width="30%" />
-</p>
+| Current conditions | Forecast | More forecast details |
+| --- | --- | --- |
+| ![Current conditions screen](images/4681clean.png) | ![Kansas City forecast](images/kcclean.png) | ![Additional Kansas City forecast details](images/kc2clean.png) |
 
 ## Ads and analytics can fuck right off
 
@@ -39,10 +37,12 @@ Just weather.
 
 - Current weather conditions
 - Detailed forecasts from the National Weather Service
+- Hourly UV forecasts from EPA, with location and forecast time; hidden when no valid hour is available
 - GPS-based weather lookup
 - Manual address/location search
 - Saved favorite locations
-- Home screen widget support
+- Home screen widgets with daily high/low temperatures; the larger widget includes scrollable day/night forecasts, precipitation chance, and wind
+- Separate resizable NWS Forecast Graph widget: the selected location, temperature, sky cover, precipitation chance, and six-hour probability of 12 inches of snow. Uses the shared graph preset (48 hours starting 59 hours ahead); tap the graph to open the NWS page. Refreshes about every 30 minutes when Android permits.
 - Dynamic weather-based UI
 - Modern Kotlin + Jetpack Compose interface
 
@@ -69,6 +69,8 @@ Just NWS Weather makes network requests only for weather and location-related fu
 Primary service:
 
 - `api.weather.gov` - National Weather Service weather forecast data
+- `forecast.weather.gov` - graphical forecast page and image, fetched when the graph widget is installed
+- `data.epa.gov` - UV forecasts only, requested using the NWS-provided city and state
 
 Possible platform/system services:
 

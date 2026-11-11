@@ -1,5 +1,7 @@
 package com.nwsweather.presentation
 
+import com.nwsweather.data.repository.ForecastLoadResult
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nwsweather.data.local.SavedLocationEntity
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import com.nwsweather.util.WeatherFreshness
 import com.nwsweather.worker.WidgetRefreshWorker
+import com.nwsweather.worker.StatusBarRefreshAlarm
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -115,6 +118,7 @@ class WeatherViewModel(
 
     fun onTemperatureUnitChanged(unit: TemperatureUnit) {
         settingsManager.setTemperatureUnit(unit)
+        com.nwsweather.widget.ForecastGraphWorker.enqueue(repository.appContext)
         refreshStatusBarTemp()
     }
 
@@ -124,6 +128,7 @@ class WeatherViewModel(
 
     fun onStatusBarTempToggleChanged(enabled: Boolean) {
         settingsManager.setStatusBarTempEnabled(enabled)
+        StatusBarRefreshAlarm.sync(repository.appContext, enabled)
         if (enabled) {
             val helper = NotificationHelper(repository.appContext)
             if (!helper.hasNotificationPermission()) {
@@ -332,7 +337,7 @@ class WeatherViewModel(
         }
     }
 
-    private fun launchLoad(block: suspend () -> com.nwsweather.data.repository.ForecastLoadResult): kotlinx.coroutines.Job {
+    private fun launchLoad(block: suspend () -> ForecastLoadResult): kotlinx.coroutines.Job {
         loadJob?.cancel()
         return viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }

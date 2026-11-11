@@ -1,4 +1,11 @@
 <resources>
     <string name="app_name">Just NWS Weather</string>
-    <string name="widget_description">Quick weather snapshot from your latest forecast.</string>
+    <string name="widget_description">Current weather and daily high/low. Enlarge for a scrollable day and night forecast.</string>
+    <string name="graph_widget_description">NWS hourly graph with temperature, sky cover, precipitation and snowfall probability. Tap to enlarge.</string>
+    <string name="graph_widget_title">NWS Forecast Graph</string>
+    <string name="graph_refresh_label">Refresh</string>
+    <string name="graph_refresh_description">Refresh forecast graph</string>
+    <string name="graph_window_label">48-hour forecast starting +59h</string>
+    <string name="graph_image_description">NWS temperature, sky cover, precipitation and snowfall probability graph. Tap to enlarge.</string>
+    <string name="graph_loading_label">Loading graph. Select a location in the app first.</string>
 </resources>

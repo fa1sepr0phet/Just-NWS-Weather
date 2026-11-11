@@ -36,6 +36,13 @@ import com.nwsweather.presentation.TemperatureUnit
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.glance.appwidget.lazy.LazyColumn
+import com.nwsweather.data.model.NwsForecastPeriod
+import com.nwsweather.util.WidgetDailyForecast
+import com.nwsweather.util.widgetDailyForecast
+import com.nwsweather.util.formatTemperature
+import kotlinx.serialization.json.Json
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,10 +52,11 @@ class WeatherAppWidget : GlanceAppWidget() {
         private val SIZE_4X1 = DpSize(280.dp, 70.dp)
         private val SIZE_2X2 = DpSize(140.dp, 140.dp)
         private val SIZE_4X2 = DpSize(280.dp, 140.dp)
+        private val SIZE_4X4 = DpSize(280.dp, 280.dp)
     }
 
     override val sizeMode = SizeMode.Responsive(
-        setOf(SIZE_2X1, SIZE_4X1, SIZE_2X2, SIZE_4X2)
+        setOf(SIZE_2X1, SIZE_4X1, SIZE_2X2, SIZE_4X2, SIZE_4X4)
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -106,13 +114,14 @@ private fun Loaded2x1Pill(snapshot: WeatherSnapshotEntity, preferredUnit: Temper
         Column {
             Text(
                 text = "$displayTemp°",
-                style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 20.sp)
             )
             Text(
                 text = snapshot.locationName,
-                style = TextStyle(color = ColorProvider(Color(0xE6FFFFFF)), fontSize = 10.sp),
+                style = TextStyle(color = widgetColor(Color(0xE6FFFFFF)), fontSize = 10.sp),
                 maxLines = 1
             )
+            HighLow(snapshot, preferredUnit, 10)
         }
     }
 }
@@ -128,16 +137,17 @@ private fun Loaded2x2Square(snapshot: WeatherSnapshotEntity, preferredUnit: Temp
         ConditionIcon(snapshot)
         Text(
             text = "$displayTemp°",
-            style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 32.sp)
+            style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 32.sp)
         )
         Text(
             text = snapshot.locationName,
-            style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp),
+            style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp),
             maxLines = 1
         )
+        HighLow(snapshot, preferredUnit, 11)
         Text(
             text = snapshot.shortForecast,
-            style = TextStyle(color = ColorProvider(Color(0xCCFFFFFF)), fontSize = 11.sp),
+            style = TextStyle(color = widgetColor(Color(0xCCFFFFFF)), fontSize = 11.sp),
             maxLines = 1
         )
     }
@@ -155,16 +165,16 @@ private fun Loaded4x1Pill(snapshot: WeatherSnapshotEntity, preferredUnit: Temper
         Column(modifier = GlanceModifier.defaultWeight()) {
             Text(
                 text = "$displayTemp° ${snapshot.locationName}",
-                style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 18.sp),
+                style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 18.sp),
                 maxLines = 1
             )
             val details = listOfNotNull(
-                snapshot.shortForecast,
-                snapshot.humidity?.let { "Hum: $it%" }
+                highLowText(snapshot, preferredUnit),
+                snapshot.shortForecast
             ).joinToString(" • ")
             Text(
                 text = details,
-                style = TextStyle(color = ColorProvider(Color(0xE6FFFFFF)), fontSize = 12.sp),
+                style = TextStyle(color = widgetColor(Color(0xE6FFFFFF)), fontSize = 12.sp),
                 maxLines = 1
             )
         }
@@ -173,37 +183,83 @@ private fun Loaded4x1Pill(snapshot: WeatherSnapshotEntity, preferredUnit: Temper
 
 @Composable
 private fun Loaded4x2Rect(snapshot: WeatherSnapshotEntity, preferredUnit: TemperatureUnit) {
-    val displayTemp = convertTemperature(snapshot.temperature, snapshot.temperatureUnit, preferredUnit)
-    Row(modifier = GlanceModifier.fillMaxSize()) {
-        Column(
-            modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+    val daily = snapshot.dailyForecast()
+    Column(modifier = GlanceModifier.fillMaxSize()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             ConditionIcon(snapshot)
+            Spacer(GlanceModifier.width(8.dp))
             Text(
-                text = "$displayTemp°",
-                style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 36.sp)
+                text = formatTemperature(snapshot.temperature, snapshot.temperatureUnit, preferredUnit),
+                style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 26.sp)
             )
-            Text(text = snapshot.locationName, style = TextStyle(color = ColorProvider(Color.White)))
-            
-            val updateTime = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(snapshot.updatedAtEpochMs))
-            Text(
-                text = "Updated $updateTime",
-                style = TextStyle(color = ColorProvider(Color(0x99FFFFFF)), fontSize = 10.sp)
-            )
-        }
-        
-        Column(
-            modifier = GlanceModifier.width(120.dp).fillMaxHeight().padding(start = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            snapshot.humidity?.let {
-                DetailRow("Humidity", "$it%")
+            Spacer(GlanceModifier.width(8.dp))
+            Column(modifier = GlanceModifier.defaultWeight()) {
+                Text(snapshot.locationName, style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp), maxLines = 1)
+                val updateTime = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(snapshot.updatedAtEpochMs))
+                Text("Reading $updateTime", style = TextStyle(color = widgetColor(Color(0xE6FFFFFF)), fontSize = 10.sp))
             }
-            DetailRow("Wind", "${snapshot.windSpeed} ${snapshot.windDirection}")
-            DetailRow("Forecast", snapshot.shortForecast)
         }
+        HighLow(snapshot, preferredUnit, 13)
+        LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+            item {
+                Text(
+                    text = daily?.date?.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))
+                        ?.let { "$it forecast" } ?: "Daily forecast unavailable",
+                    style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                )
+            }
+            item {
+                if (daily?.day != null) DailyPeriod("Day", daily.day)
+                else Text("Daytime forecast unavailable", style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp))
+            }
+            item {
+                if (daily?.night != null) DailyPeriod("Night", daily.night)
+                else Text("Night forecast unavailable", style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp))
+            }
+            item { DetailRow("Current conditions", snapshot.shortForecast) }
+            item { DetailRow("Wind", "${snapshot.windSpeed} ${snapshot.windDirection}") }
+            item { snapshot.humidity?.let { DetailRow("Humidity", "$it%") } }
+        }
+    }
+}
+
+@Composable
+private fun DailyPeriod(label: String, period: NwsForecastPeriod) {
+    Column(modifier = GlanceModifier.padding(vertical = 4.dp)) {
+        Text(label, style = TextStyle(color = widgetColor(Color.White), fontWeight = FontWeight.Bold, fontSize = 12.sp))
+        Text(
+            period.detailedForecast?.takeIf { it.isNotBlank() } ?: period.shortForecast ?: "Forecast unavailable",
+            style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp)
+        )
+        val details = listOfNotNull(
+            period.probabilityOfPrecipitation?.value?.toInt()?.let { "Precip $it%" },
+            period.windSpeed?.let { "Wind $it ${period.windDirection.orEmpty()}" }
+        ).joinToString(" \u00B7 ")
+        if (details.isNotEmpty()) Text(details, style = TextStyle(color = widgetColor(Color(0xE6FFFFFF)), fontSize = 11.sp))
+    }
+}
+
+private fun WeatherSnapshotEntity.dailyForecast(): WidgetDailyForecast? {
+    val now = System.currentTimeMillis()
+    val fetched = forecastFetchedAtEpochMs ?: return null
+    if (now - fetched !in 0..86_400_000L) return null
+    val periods = runCatching { Json.decodeFromString<List<NwsForecastPeriod>>(forecastPeriodsJson ?: "[]") }
+        .getOrDefault(emptyList())
+    return widgetDailyForecast(periods, forecastTimeZone, now)
+}
+
+private fun highLowText(snapshot: WeatherSnapshotEntity, unit: TemperatureUnit): String? {
+    val daily = snapshot.dailyForecast() ?: return null
+    fun temperature(period: NwsForecastPeriod?) = period?.let {
+        "${convertTemperature(it.temperature, it.temperatureUnit, unit)}\u00B0"
+    } ?: "--"
+    return "H ${temperature(daily.day)} / L ${temperature(daily.night)}"
+}
+
+@Composable
+private fun HighLow(snapshot: WeatherSnapshotEntity, unit: TemperatureUnit, fontSize: Int) {
+    highLowText(snapshot, unit)?.let {
+        Text(it, style = TextStyle(color = widgetColor(Color.White), fontSize = fontSize.sp), maxLines = 1)
     }
 }
 
@@ -212,11 +268,11 @@ private fun DetailRow(label: String, value: String) {
     Column(modifier = GlanceModifier.padding(vertical = 2.dp)) {
         Text(
             text = label,
-            style = TextStyle(color = ColorProvider(Color(0xCCFFFFFF)), fontSize = 10.sp)
+            style = TextStyle(color = widgetColor(Color(0xCCFFFFFF)), fontSize = 10.sp)
         )
         Text(
             text = value,
-            style = TextStyle(color = ColorProvider(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Medium),
+            style = TextStyle(color = widgetColor(Color.White), fontSize = 12.sp, fontWeight = FontWeight.Medium),
             maxLines = 1
         )
     }
@@ -242,49 +298,26 @@ private fun ConditionIcon(snapshot: WeatherSnapshotEntity) {
 }
 
 @Composable
-private fun UVIndexBadge(level: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = "UV", style = TextStyle(color = ColorProvider(Color.White), fontSize = 10.sp))
-        Text(
-            text = level,
-            style = TextStyle(color = ColorProvider(Color.Yellow), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-        )
-    }
-}
-
-@Composable
-private fun ForecastRow(day: String, temp: String) {
-    Row(modifier = GlanceModifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(
-            text = day,
-            style = TextStyle(color = ColorProvider(Color.White), fontSize = 16.sp),
-            modifier = GlanceModifier.defaultWeight()
-        )
-        Text(
-            text = temp,
-            style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        )
-    }
-}
-
-@Composable
 private fun EmptyWeatherWidget() {
-    Text(text = "No data", style = TextStyle(color = ColorProvider(Color.White)))
+    Text(text = "No data", style = TextStyle(color = widgetColor(Color.White)))
 }
 
 private fun backgroundColorFor(snapshot: WeatherSnapshotEntity?): ColorProvider {
-    if (snapshot == null) return ColorProvider(Color(0xFF31435F))
+    if (snapshot == null) return widgetColor(Color(0xFF31435F))
     
     val mood = mapWeatherMood(snapshot.shortForecast, snapshot.isDaytime)
     
     val color = when (mood) {
         WeatherMood.SUNNY -> Color(0xFF4F86C6)
-        WeatherMood.CLOUDY -> Color(0xFF8FA3B0)
+        WeatherMood.CLOUDY -> Color(0xFF4D626F)
         WeatherMood.RAIN -> Color(0xFF355C7D)
         WeatherMood.STORM -> Color(0xFF16213E)
-        WeatherMood.SNOW -> Color(0xFFDDEAF7)
+        WeatherMood.SNOW -> Color(0xFF425E78)
         WeatherMood.CLEAR_NIGHT -> Color(0xFF1F2A44)
         WeatherMood.CLOUDY_NIGHT -> Color(0xFF1A2633)
     }
-    return ColorProvider(color)
+    return widgetColor(color)
 }
+
+private fun widgetColor(color: Color): ColorProvider =
+    androidx.glance.color.ColorProvider(day = color, night = color)

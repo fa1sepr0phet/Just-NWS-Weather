@@ -10,6 +10,14 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Url
 
+interface EpaUvApi {
+    @GET("getEnvirofactsUVHOURLY/CITY/{city}/STATE/{state}/JSON")
+    suspend fun getHourlyUv(
+        @Path("city") city: String,
+        @Path("state") state: String
+    ): List<com.nwsweather.data.model.EpaUvHour>
+}
+
 interface NwsApi {
     @GET("points/{lat},{lon}")
     suspend fun getPointMetadata(

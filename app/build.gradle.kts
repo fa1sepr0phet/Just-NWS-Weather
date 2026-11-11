@@ -25,8 +25,8 @@ android {
         applicationId = "com.nwsweather.myapp"
         minSdk = 27
         targetSdk = 36
-        versionCode = 108
-        versionName = "12.8"
+        versionCode = 111
+        versionName = "12.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -74,12 +74,14 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

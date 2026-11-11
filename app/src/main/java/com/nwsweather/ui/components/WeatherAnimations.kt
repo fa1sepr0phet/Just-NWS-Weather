@@ -124,8 +124,8 @@ fun SunnyAnimation() {
 
     Canvas(modifier = Modifier.fillMaxSize()) {
         val sunCenter = Offset(
-            size.width + 100f - (entryProgress.value * 250f),
-            -100f + (entryProgress.value * 250f)
+            size.width - 88.dp.toPx(),
+            180.dp.toPx() + (1f - entryProgress.value) * 24.dp.toPx()
         )
         val radius = 60.dp.toPx()
 

@@ -1,5 +1,7 @@
 package com.nwsweather.ui.theme
 
+import androidx.compose.material3.ColorScheme
+import com.nwsweather.presentation.AppTheme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
@@ -36,10 +38,37 @@ fun mapWeatherMood(forecast: String, isDay: Boolean): WeatherMood {
     }
 }
 
-fun visualsForMood(mood: WeatherMood): WeatherVisuals {
+fun visualsForMood(mood: WeatherMood, resolvedTheme: AppTheme, colors: ColorScheme): WeatherVisuals {
+    if (resolvedTheme == AppTheme.MIDNIGHT) {
+        return WeatherVisuals(
+            background = Brush.verticalGradient(listOf(Color.Black, Color.Black)),
+            cardColor = colors.surface,
+            onCardTextColor = colors.onSurface,
+            appBarContentColor = colors.onBackground
+        )
+    }
+    if (resolvedTheme == AppTheme.DARK) {
+        val bottom = when (mood) {
+            WeatherMood.SUNNY -> Color(0xFF293B50)
+            WeatherMood.CLOUDY, WeatherMood.CLOUDY_NIGHT -> Color(0xFF263541)
+            WeatherMood.RAIN, WeatherMood.STORM -> Color(0xFF1C3043)
+            WeatherMood.SNOW -> Color(0xFF304354)
+            WeatherMood.CLEAR_NIGHT -> Color(0xFF14243D)
+        }
+        return WeatherVisuals(
+            background = Brush.verticalGradient(listOf(Color(0xFF0E1722), bottom)),
+            cardColor = colors.surface,
+            onCardTextColor = colors.onSurface,
+            appBarContentColor = colors.onBackground
+        )
+    }
+    return lightVisualsForMood(mood).copy(cardColor = colors.surface, onCardTextColor = colors.onSurface)
+}
+
+private fun lightVisualsForMood(mood: WeatherMood): WeatherVisuals {
     val darkText = Color.Black
     val lightText = Color.White
-    val lightCard = Color.White.copy(alpha = 0.92f)
+    val lightCard = Color.White
 
     return when (mood) {
         WeatherMood.SUNNY -> WeatherVisuals(
@@ -52,7 +81,7 @@ fun visualsForMood(mood: WeatherMood): WeatherVisuals {
             ),
             cardColor = lightCard,
             onCardTextColor = darkText,
-            appBarContentColor = lightText
+            appBarContentColor = darkText
         )
 
         WeatherMood.CLOUDY -> WeatherVisuals(
@@ -65,7 +94,7 @@ fun visualsForMood(mood: WeatherMood): WeatherVisuals {
             ),
             cardColor = lightCard,
             onCardTextColor = darkText,
-            appBarContentColor = lightText
+            appBarContentColor = darkText
         )
 
         WeatherMood.RAIN -> WeatherVisuals(
@@ -102,7 +131,7 @@ fun visualsForMood(mood: WeatherMood): WeatherVisuals {
                     Color(0xFFFFFFFF)
                 )
             ),
-            cardColor = Color.White.copy(alpha = 0.92f),
+            cardColor = Color.White,
             onCardTextColor = darkText,
             appBarContentColor = darkText
         )

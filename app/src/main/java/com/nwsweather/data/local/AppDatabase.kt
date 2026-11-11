@@ -11,10 +11,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SavedLocationEntity::class, PointCacheEntity::class, WeatherSnapshotEntity::class],
-    version = 8,
+    version = 9,
     autoMigrations = [
         AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7)
+        AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 8, to = 9)
     ],
     exportSchema = true
 )
